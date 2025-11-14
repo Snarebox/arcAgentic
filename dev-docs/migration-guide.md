@@ -5,19 +5,21 @@ This guide walks through migrating from local Ollama (mistral:instruct) to cloud
 ## Overview
 
 The migration is designed to be minimal and surgical:
+
 1. Add OpenRouter adapter (already created at `packages/api/src/llm/openrouter.ts`)
-2. Update environment configuration
-3. Modify server.ts to use OpenRouter instead of Ollama
-4. Test and deploy
+1. Update environment configuration
+1. Modify server.ts to use OpenRouter instead of Ollama
+1. Test and deploy
 
 ## Prerequisites
 
 1. **OpenRouter Account**
-   - Sign up at https://openrouter.ai
-   - Create API key at https://openrouter.ai/keys
-   - Add initial credits ($5-10 recommended for testing)
 
-2. **Choose Your Model**
+- Sign up at <https://openrouter.ai>
+- Create API key at <https://openrouter.ai/keys>
+- Add initial credits ($5-10 recommended for testing)
+
+1. **Choose Your Model**
    - Recommended: `mistralai/mistral-large-2411` (best balance)
    - Premium: `anthropic/claude-3.5-sonnet` (best quality)
    - Budget: `deepseek/deepseek-chat` (cheapest)
@@ -25,7 +27,7 @@ The migration is designed to be minimal and surgical:
 
 ## Step 1: Update Environment Configuration
 
-### In `packages/api/.env.example`:
+### In `packages/api/.env.example`
 
 Add new OpenRouter variables:
 
@@ -39,7 +41,7 @@ OPENROUTER_MODEL=mistralai/mistral-large-2411
 # OLLAMA_MODEL=mistral:instruct
 ```
 
-### In your actual `.env` file:
+### In your actual `.env` file
 
 ```bash
 OPENROUTER_API_KEY=your_actual_key_here
@@ -50,7 +52,7 @@ OPENROUTER_MODEL=mistralai/mistral-large-2411
 
 ## Step 2: Update Config Utility
 
-### In `packages/api/src/util/config.ts`:
+### In `packages/api/src/util/config.ts`
 
 Add OpenRouter configuration:
 
@@ -88,7 +90,7 @@ export function getConfig(): Config {
 
 ## Step 3: Update Server to Use OpenRouter
 
-### In `packages/api/src/server.ts`:
+### In `packages/api/src/server.ts`
 
 Replace the Ollama call with OpenRouter:
 
@@ -146,7 +148,7 @@ if (result.error) {
 
 ## Step 4: Update Health Check
 
-### In `packages/api/src/util/health.ts`:
+### In `packages/api/src/util/health.ts`
 
 Add OpenRouter health check (optional):
 
@@ -168,7 +170,7 @@ export async function checkOpenRouter(apiKey: string | undefined): Promise<{ ok:
 }
 ```
 
-### Update `/health` endpoint in `server.ts`:
+### Update `/health` endpoint in `server.ts`
 
 ```typescript
 app.get('/health', async (c) => {
@@ -212,7 +214,7 @@ app.get('/health', async (c) => {
 
 ## Step 5: Update Config Endpoint
 
-### In `server.ts` `/config` endpoint:
+### In `server.ts` `/config` endpoint
 
 ```typescript
 app.get('/config', (c) => {
@@ -234,7 +236,7 @@ app.get('/config', (c) => {
 
 ## Step 6: Update Documentation
 
-### In `README.md`:
+### In `README.md`
 
 Update the configuration section:
 
@@ -267,13 +269,13 @@ Example env file: `packages/api/.env.example`
 
 ## Step 7: Test the Migration
 
-### 7.1 Build the project:
+### 7.1 Build the project
 
 ```bash
 pnpm -w build
 ```
 
-### 7.2 Set up your environment:
+### 7.2 Set up your environment
 
 ```bash
 cd packages/api
@@ -281,13 +283,13 @@ cp .env.example .env
 # Edit .env and add your OPENROUTER_API_KEY
 ```
 
-### 7.3 Start the server:
+### 7.3 Start the server
 
 ```bash
 pnpm -F @minimal-rpg/api dev
 ```
 
-### 7.4 Test the health endpoint:
+### 7.4 Test the health endpoint
 
 ```bash
 curl http://localhost:3001/health
@@ -295,7 +297,7 @@ curl http://localhost:3001/health
 
 Should show OpenRouter as available.
 
-### 7.5 Test a conversation:
+### 7.5 Test a conversation
 
 ```bash
 # Create a session
@@ -314,9 +316,11 @@ curl -X POST http://localhost:3001/sessions/YOUR_SESSION_ID/messages \
 ### Cost Monitoring
 
 Check your OpenRouter dashboard:
-- https://openrouter.ai/activity
+
+- <https://openrouter.ai/activity>
 
 Monitor:
+
 - Daily token usage
 - Cost per conversation
 - Model performance
@@ -328,12 +332,12 @@ Monitor:
    - Consider reducing to 8-10 for cost savings
    - Large context (128K-200K) is available but rarely needed
 
-2. **Model Selection**
+1. **Model Selection**
    - Start with Mistral Large 2 ($6/million output tokens)
    - Switch to Claude 3.5 Sonnet if quality issues arise
    - Fall back to DeepSeek for cost-sensitive scenarios
 
-3. **Prompt Optimization**
+1. **Prompt Optimization**
    - Keep system prompts concise
    - Truncate older conversation history more aggressively
    - Use summarization for very long conversations
@@ -343,31 +347,36 @@ Monitor:
 If you need to rollback to Ollama:
 
 1. Comment out OpenRouter environment variables
-2. Set `OLLAMA_MODEL=mistral:instruct`
-3. Restart the server
-4. The code maintains backward compatibility
+1. Set `OLLAMA_MODEL=mistral:instruct`
+1. Restart the server
+1. The code maintains backward compatibility
 
 ## Troubleshooting
 
 ### "Missing LLM configuration" error
+
 - Ensure either OPENROUTER_API_KEY + OPENROUTER_MODEL or OLLAMA_MODEL is set
 - Check .env file is in correct location and loaded
 
 ### "OpenRouter error 401"
+
 - Invalid API key
-- Check key at https://openrouter.ai/keys
+- Check key at <https://openrouter.ai/keys>
 - Ensure no extra whitespace in .env
 
 ### "OpenRouter error 402"
+
 - Insufficient credits
-- Add credits at https://openrouter.ai/credits
+- Add credits at <https://openrouter.ai/credits>
 
 ### Model not found error
-- Check model name is correct: https://openrouter.ai/models
+
+- Check model name is correct: <https://openrouter.ai/models>
 - Some models require explicit opt-in for data usage policies
 
 ### Slow responses
-- Check model latency: https://openrouter.ai/models
+
+- Check model latency: <https://openrouter.ai/models>
 - Consider switching to faster model (Together AI models are usually fastest)
 - Reduce context window size
 
@@ -376,11 +385,13 @@ If you need to rollback to Ollama:
 Based on your usage patterns:
 
 **Light usage (100 conversations/day, 15K tokens per conversation):**
+
 - Mistral Large 2: ~$150/month
 - Claude 3.5 Sonnet: ~$315/month
 - DeepSeek V3: ~$20/month
 
 **Moderate usage (500 conversations/day):**
+
 - Mistral Large 2: ~$750/month
 - Claude 3.5 Sonnet: ~$1,575/month
 - DeepSeek V3: ~$100/month
@@ -388,13 +399,13 @@ Based on your usage patterns:
 ## Next Steps
 
 1. ✅ Complete this migration
-2. Monitor usage and costs for 1-2 weeks
-3. Fine-tune context window and temperature settings
-4. Consider implementing model switching based on conversation type
-5. Explore function calling for enhanced features (dice rolls, inventory, etc.)
+1. Monitor usage and costs for 1-2 weeks
+1. Fine-tune context window and temperature settings
+1. Consider implementing model switching based on conversation type
+1. Explore function calling for enhanced features (dice rolls, inventory, etc.)
 
 ## Support
 
-- OpenRouter Docs: https://openrouter.ai/docs
-- OpenRouter Discord: https://discord.gg/fVyRaUDgxW
-- Model comparisons: https://artificialanalysis.ai/models
+- OpenRouter Docs: <https://openrouter.ai/docs>
+- OpenRouter Discord: <https://discord.gg/fVyRaUDgxW>
+- Model comparisons: <https://artificialanalysis.ai/models>
