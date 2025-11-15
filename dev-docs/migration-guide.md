@@ -58,17 +58,17 @@ Add OpenRouter configuration:
 
 ```typescript
 export interface Config {
-  port: number
-  contextWindow: number
-  temperature: number
-  topP: number
+  port: number;
+  contextWindow: number;
+  temperature: number;
+  topP: number;
   // Add OpenRouter fields
-  openrouterApiKey?: string
-  openrouterModel?: string
-  openrouterFallbackModels?: string[]
+  openrouterApiKey?: string;
+  openrouterModel?: string;
+  openrouterFallbackModels?: string[];
   // Keep Ollama for backward compatibility
-  ollamaBaseUrl: string
-  ollamaModel?: string
+  ollamaBaseUrl: string;
+  ollamaModel?: string;
 }
 
 export function getConfig(): Config {
@@ -80,11 +80,13 @@ export function getConfig(): Config {
     // OpenRouter configuration
     openrouterApiKey: process.env.OPENROUTER_API_KEY,
     openrouterModel: process.env.OPENROUTER_MODEL,
-    openrouterFallbackModels: process.env.OPENROUTER_FALLBACK_MODELS?.split(',').map(m => m.trim()),
+    openrouterFallbackModels: process.env.OPENROUTER_FALLBACK_MODELS?.split(',').map((m) =>
+      m.trim(),
+    ),
     // Ollama (backward compatible)
     ollamaBaseUrl: process.env.OLLAMA_BASE_URL ?? 'http://localhost:11434',
     ollamaModel: process.env.OLLAMA_MODEL,
-  }
+  };
 }
 ```
 
@@ -95,29 +97,33 @@ export function getConfig(): Config {
 Replace the Ollama call with OpenRouter:
 
 ```typescript
-import { chatWithOpenRouter } from './llm/openrouter.js'
+import { chatWithOpenRouter } from './llm/openrouter.js';
 // Keep this for backward compatibility: import { chatWithOllama } from './llm/ollama.js'
 
 // In the POST /sessions/:id/messages handler, replace:
 
-const cfg = getConfig()
+const cfg = getConfig();
 
 // Determine which LLM to use
-const useOpenRouter = !!(cfg.openrouterApiKey && cfg.openrouterModel)
+const useOpenRouter = !!(cfg.openrouterApiKey && cfg.openrouterModel);
 
 if (!useOpenRouter && !cfg.ollamaModel) {
-  return c.json({ 
-    ok: false, 
-    error: 'Missing LLM configuration. Set either OPENROUTER_API_KEY + OPENROUTER_MODEL or OLLAMA_MODEL' 
-  }, 500)
+  return c.json(
+    {
+      ok: false,
+      error:
+        'Missing LLM configuration. Set either OPENROUTER_API_KEY + OPENROUTER_MODEL or OLLAMA_MODEL',
+    },
+    500,
+  );
 }
 
-const messages = buildPrompt({ character, setting, history, historyWindow: cfg.contextWindow })
-console.info(`Session ${session.id}: calling LLM with ${messages.length} messages`)
+const messages = buildPrompt({ character, setting, history, historyWindow: cfg.contextWindow });
+console.info(`Session ${session.id}: calling LLM with ${messages.length} messages`);
 
-let result
+let result;
 if (useOpenRouter) {
-  console.info(`Using OpenRouter model: ${cfg.openrouterModel}`)
+  console.info(`Using OpenRouter model: ${cfg.openrouterModel}`);
   result = await chatWithOpenRouter({
     apiKey: cfg.openrouterApiKey!,
     model: cfg.openrouterModel!,
@@ -125,10 +131,10 @@ if (useOpenRouter) {
     options: {
       temperature: cfg.temperature,
       top_p: cfg.topP,
-    }
-  })
+    },
+  });
 } else {
-  console.info(`Using Ollama model: ${cfg.ollamaModel}`)
+  console.info(`Using Ollama model: ${cfg.ollamaModel}`);
   result = await chatWithOllama({
     baseUrl: cfg.ollamaBaseUrl,
     model: cfg.ollamaModel!,
@@ -136,13 +142,13 @@ if (useOpenRouter) {
     options: {
       temperature: cfg.temperature,
       top_p: cfg.topP,
-    }
-  })
+    },
+  });
 }
 
 if (result.error) {
-  console.error(`Session ${session.id}: LLM error -> ${result.error}`)
-  return c.json({ ok: false, error: result.error }, 502)
+  console.error(`Session ${session.id}: LLM error -> ${result.error}`);
+  return c.json({ ok: false, error: result.error }, 502);
 }
 ```
 
@@ -155,17 +161,17 @@ Add OpenRouter health check (optional):
 ```typescript
 export async function checkOpenRouter(apiKey: string | undefined): Promise<{ ok: boolean }> {
   if (!apiKey) {
-    return { ok: false }
+    return { ok: false };
   }
-  
+
   try {
     const res = await fetch('https://openrouter.ai/api/v1/models', {
-      headers: { 'Authorization': `Bearer ${apiKey}` },
-      signal: AbortSignal.timeout(5000)
-    })
-    return { ok: res.ok }
+      headers: { Authorization: `Bearer ${apiKey}` },
+      signal: AbortSignal.timeout(5000),
+    });
+    return { ok: res.ok };
   } catch {
-    return { ok: false }
+    return { ok: false };
   }
 }
 ```
@@ -174,42 +180,45 @@ export async function checkOpenRouter(apiKey: string | undefined): Promise<{ ok:
 
 ```typescript
 app.get('/health', async (c) => {
-  const uptime = process.uptime()
-  const version = await getVersion()
-  
+  const uptime = process.uptime();
+  const version = await getVersion();
+
   // DB check
-  let dbOk = false
+  let dbOk = false;
   try {
-    const { prisma } = await import('./db/prisma.js')
-    await prisma.$queryRaw`SELECT 1`
-    dbOk = true
+    const { prisma } = await import('./db/prisma.js');
+    await prisma.$queryRaw`SELECT 1`;
+    dbOk = true;
   } catch (error) {
-    console.warn('Database health check failed', error)
+    console.warn('Database health check failed', error);
   }
-  
-  const cfg = getConfig()
-  
+
+  const cfg = getConfig();
+
   // Check OpenRouter if configured
   const openrouter = cfg.openrouterApiKey
     ? await checkOpenRouter(cfg.openrouterApiKey).catch(() => ({ ok: false }))
-    : { ok: false, message: 'not configured' }
-  
+    : { ok: false, message: 'not configured' };
+
   // Check Ollama for backward compatibility
-  const ollama = await checkOllama(cfg.ollamaBaseUrl).catch(() => ({ ok: false }))
-  
-  const llmOk = openrouter.ok || ollama.ok
-  
-  return c.json({ 
-    status: dbOk && llmOk ? 'ok' : 'degraded',
-    uptime,
-    version,
-    db: { ok: dbOk },
-    llm: {
-      openrouter: cfg.openrouterApiKey ? openrouter : { ok: false, message: 'not configured' },
-      ollama: cfg.ollamaModel ? ollama : { ok: false, message: 'not configured' }
-    }
-  }, 200)
-})
+  const ollama = await checkOllama(cfg.ollamaBaseUrl).catch(() => ({ ok: false }));
+
+  const llmOk = openrouter.ok || ollama.ok;
+
+  return c.json(
+    {
+      status: dbOk && llmOk ? 'ok' : 'degraded',
+      uptime,
+      version,
+      db: { ok: dbOk },
+      llm: {
+        openrouter: cfg.openrouterApiKey ? openrouter : { ok: false, message: 'not configured' },
+        ollama: cfg.ollamaModel ? ollama : { ok: false, message: 'not configured' },
+      },
+    },
+    200,
+  );
+});
 ```
 
 ## Step 5: Update Config Endpoint
@@ -218,20 +227,23 @@ app.get('/health', async (c) => {
 
 ```typescript
 app.get('/config', (c) => {
-  const cfg = getConfig()
-  return c.json({
-    port: cfg.port,
-    contextWindow: cfg.contextWindow,
-    temperature: cfg.temperature,
-    topP: cfg.topP,
-    llm: {
-      provider: cfg.openrouterApiKey ? 'openrouter' : 'ollama',
-      model: cfg.openrouterModel || cfg.ollamaModel,
-      openrouterAvailable: !!cfg.openrouterApiKey,
-      ollamaAvailable: !!cfg.ollamaModel,
-    }
-  }, 200)
-})
+  const cfg = getConfig();
+  return c.json(
+    {
+      port: cfg.port,
+      contextWindow: cfg.contextWindow,
+      temperature: cfg.temperature,
+      topP: cfg.topP,
+      llm: {
+        provider: cfg.openrouterApiKey ? 'openrouter' : 'ollama',
+        model: cfg.openrouterModel || cfg.ollamaModel,
+        openrouterAvailable: !!cfg.openrouterApiKey,
+        ollamaAvailable: !!cfg.ollamaModel,
+      },
+    },
+    200,
+  );
+});
 ```
 
 ## Step 6: Update Documentation
@@ -251,15 +263,18 @@ The API reads environment variables with sensible defaults for local development
 ### LLM Configuration (choose one):
 
 **Cloud-hosted (recommended for production):**
+
 - `OPENROUTER_API_KEY` - Your OpenRouter API key
 - `OPENROUTER_MODEL` - Model to use (e.g., `mistralai/mistral-large-2411`)
 - See `dev-docs/llm-recommendations.md` for model recommendations
 
 **Local development (requires Ollama):**
+
 - `OLLAMA_BASE_URL` (default: `http://localhost:11434`)
 - `OLLAMA_MODEL` (e.g., `mistral:instruct`)
 
 **Generation parameters:**
+
 - `CONTEXT_WINDOW` (default: `12`) — how many recent turns to include
 - `TEMPERATURE` (default: `0.7`) — generation temperature
 - `TOP_P` (default: `0.9`) — nucleus sampling parameter
