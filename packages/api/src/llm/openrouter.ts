@@ -1,3 +1,5 @@
+import { getErrorMessage, safeJson, safeText } from '@minimal-rpg/utils';
+
 /**
  * OpenRouter LLM adapter
  *
@@ -95,7 +97,7 @@ export async function chatWithOpenRouter(
       return { error: `OpenRouter error ${res.status}: ${text}` };
     }
 
-    const payload = (await safeJson(res)) as OpenRouterResponse;
+    const payload = (await safeJson<OpenRouterResponse>(res)) ?? {};
 
     // Extract assistant message from OpenAI-compatible response
     const assistantReply = extractAssistantContent(payload);
@@ -110,39 +112,21 @@ export async function chatWithOpenRouter(
 
     return { error: 'Invalid OpenRouter response' };
   } catch (error) {
-    const msg = error instanceof Error ? error.message : String(error);
+    const msg = getErrorMessage(error, 'Unknown error');
     return { error: `OpenRouter request failed: ${msg}` };
   } finally {
     clearTimeout(timer);
   }
 }
 
-async function safeText(res: Response): Promise<string> {
-  try {
-    return await res.text();
-  } catch {
-    return '<no body>';
-  }
-}
-
-async function safeJson(res: Response): Promise<unknown> {
-  try {
-    return await res.json();
-  } catch {
-    return null;
-  }
-}
-
-function extractAssistantContent(payload: unknown): string | null {
+function extractAssistantContent(payload: OpenRouterResponse | null | undefined): string | null {
   if (!payload || typeof payload !== 'object') {
     return null;
   }
 
-  const data = payload as OpenRouterResponse;
-
   // OpenAI-compatible format: choices[0].message.content
-  if (Array.isArray(data.choices) && data.choices.length > 0) {
-    const choice = data.choices[0];
+  if (Array.isArray(payload.choices) && payload.choices.length > 0) {
+    const choice = payload.choices[0];
     if (choice) {
       const content = choice.message?.content;
       if (typeof content === 'string') {
