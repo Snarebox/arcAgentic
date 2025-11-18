@@ -7,9 +7,9 @@ This guide walks through migrating from local Ollama (mistral:instruct) to cloud
 The migration is designed to be minimal and surgical:
 
 1. Add OpenRouter adapter (already created at `packages/api/src/llm/openrouter.ts`)
-1. Update environment configuration
-1. Modify server.ts to use OpenRouter instead of Ollama
-1. Test and deploy
+2. Update environment configuration
+3. Modify server.ts to use OpenRouter instead of Ollama
+4. Test and deploy
 
 ## Prerequisites
 
@@ -81,7 +81,7 @@ export function getConfig(): Config {
     openrouterApiKey: process.env.OPENROUTER_API_KEY,
     openrouterModel: process.env.OPENROUTER_MODEL,
     openrouterFallbackModels: process.env.OPENROUTER_FALLBACK_MODELS?.split(',').map((m) =>
-      m.trim(),
+      m.trim()
     ),
     // Ollama (backward compatible)
     ollamaBaseUrl: process.env.OLLAMA_BASE_URL ?? 'http://localhost:11434',
@@ -114,7 +114,7 @@ if (!useOpenRouter && !cfg.ollamaModel) {
       error:
         'Missing LLM configuration. Set either OPENROUTER_API_KEY + OPENROUTER_MODEL or OLLAMA_MODEL',
     },
-    500,
+    500
   );
 }
 
@@ -216,7 +216,7 @@ app.get('/health', async (c) => {
         ollama: cfg.ollamaModel ? ollama : { ok: false, message: 'not configured' },
       },
     },
-    200,
+    200
   );
 });
 ```
@@ -241,7 +241,7 @@ app.get('/config', (c) => {
         ollamaAvailable: !!cfg.ollamaModel,
       },
     },
-    200,
+    200
   );
 });
 ```
@@ -347,12 +347,12 @@ Monitor:
    - Consider reducing to 8-10 for cost savings
    - Large context (128K-200K) is available but rarely needed
 
-1. **Model Selection**
+2. **Model Selection**
    - Start with Mistral Large 2 ($6/million output tokens)
    - Switch to Claude 3.5 Sonnet if quality issues arise
    - Fall back to DeepSeek for cost-sensitive scenarios
 
-1. **Prompt Optimization**
+3. **Prompt Optimization**
    - Keep system prompts concise
    - Truncate older conversation history more aggressively
    - Use summarization for very long conversations
@@ -362,9 +362,9 @@ Monitor:
 If you need to rollback to Ollama:
 
 1. Comment out OpenRouter environment variables
-1. Set `OLLAMA_MODEL=mistral:instruct`
-1. Restart the server
-1. The code maintains backward compatibility
+2. Set `OLLAMA_MODEL=mistral:instruct`
+3. Restart the server
+4. The code maintains backward compatibility
 
 ## Troubleshooting
 
@@ -414,10 +414,10 @@ Based on your usage patterns:
 ## Next Steps
 
 1. ✅ Complete this migration
-1. Monitor usage and costs for 1-2 weeks
-1. Fine-tune context window and temperature settings
-1. Consider implementing model switching based on conversation type
-1. Explore function calling for enhanced features (dice rolls, inventory, etc.)
+2. Monitor usage and costs for 1-2 weeks
+3. Fine-tune context window and temperature settings
+4. Consider implementing model switching based on conversation type
+5. Explore function calling for enhanced features (dice rolls, inventory, etc.)
 
 ## Support
 
