@@ -61,9 +61,9 @@ interface OpenRouterResponse {
  * @returns Promise resolving to chat response or error
  */
 export async function chatWithOpenRouter(
-  opts: ChatWithOpenRouterOptions,
+  opts: ChatWithOpenRouterOptions
 ): Promise<OpenRouterChatResponse> {
-  const { apiKey, model, messages, timeoutMs = 60_000, options = {} } = opts;
+  const { apiKey, model, messages, timeoutMs = 120_000, options = {} } = opts;
 
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
