@@ -15,8 +15,12 @@ import { getErrorMessage, safeJson, safeText, isAbortError } from '@minimal-rpg/
  * @see https://openrouter.ai/docs for full documentation
  */
 
+import type { ChatRole, LlmGenerationOptions, LlmResponse, ApiError } from '../types.js';
+import { buildProviderOptions } from './providerUtils.js';
+
+// Chat message (OpenAI-compatible) used when talking to OpenRouter
 interface ChatMessage {
-  role: 'system' | 'user' | 'assistant';
+  role: ChatRole;
   content: string;
 }
 
@@ -161,4 +165,33 @@ function extractAssistantContent(payload: OpenRouterResponse | null | undefined)
   }
 
   return null;
+}
+
+// Normalized provider generate wrapper implementing LlmResponse shape
+export async function generateWithOpenRouter(
+  params: {
+    apiKey: string;
+    model: string;
+    messages: { role: ChatRole; content: string }[];
+  },
+  options?: LlmGenerationOptions
+): Promise<LlmResponse | ApiError> {
+  const { apiKey, model, messages } = params;
+  const builtOptions = buildProviderOptions(options);
+  const result = await chatWithOpenRouter({
+    apiKey,
+    model,
+    messages: messages.map((m) => ({ role: m.role, content: m.content })),
+    ...(Object.keys(builtOptions).length ? { options: builtOptions } : {}),
+  });
+  if (result.error) {
+    return { ok: false, error: result.error };
+  }
+  return {
+    role: 'assistant',
+    content: result.message?.content ?? '',
+    model,
+    createdAt: new Date().toISOString(),
+    openrouterMeta: {},
+  };
 }

@@ -1,5 +1,18 @@
 version: '3.9'
 services:
+  postgres:
+    image: pgvector/pgvector:pg16
+    environment:
+      - POSTGRES_DB=minirpg
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+    ports:
+      - '5432:5432'
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "postgres"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
   api:
     image: node:20
     working_dir: /app
@@ -7,7 +20,7 @@ services:
       - .:/app
     environment:
       - PORT=3001
-      - DATABASE_URL=file:/app/packages/api/prisma/dev.db
+      - DATABASE_URL=postgres://postgres:postgres@postgres:5432/minirpg
       - OLLAMA_BASE_URL=http://host.docker.internal:11434
       - OLLAMA_MODEL=mistral:instruct
       - CONTEXT_WINDOW=12
@@ -16,7 +29,7 @@ services:
     ports:
       - '3001:3001'
     command: >-
-      sh -c "corepack enable && pnpm -w install && pnpm -w build && pnpm -F @minimal-rpg/api db:deploy && node packages/api/dist/server.js"
+      sh -c "corepack enable && pnpm -w install && pnpm -w build && pnpm -F @minimal-rpg/db db:migrate && node packages/api/dist/server.js"
     healthcheck:
       test:
         [
@@ -28,6 +41,9 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+    depends_on:
+      postgres:
+        condition: service_healthy
 
   web:
     image: node:20
