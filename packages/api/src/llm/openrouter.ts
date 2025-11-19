@@ -1,4 +1,4 @@
-import { getErrorMessage, safeJson, safeText } from '@minimal-rpg/utils';
+import { getErrorMessage, safeJson, safeText, isAbortError } from '@minimal-rpg/utils';
 
 /**
  * OpenRouter LLM adapter
@@ -63,60 +63,85 @@ interface OpenRouterResponse {
 export async function chatWithOpenRouter(
   opts: ChatWithOpenRouterOptions
 ): Promise<OpenRouterChatResponse> {
-  const { apiKey, model, messages, timeoutMs = 120_000, options = {} } = opts;
+  const { apiKey, model, messages, timeoutMs = 180_000, options = {} } = opts;
 
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  let lastError: string | undefined;
+  const maxRetries = 2;
 
-  try {
-    const endpoint = 'https://openrouter.ai/api/v1/chat/completions';
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), timeoutMs);
 
-    // Build request body (OpenAI-compatible format)
-    const body = {
-      model,
-      messages,
-      temperature: options.temperature,
-      top_p: options.top_p,
-      max_tokens: options.max_tokens,
-    };
+    try {
+      const endpoint = 'https://openrouter.ai/api/v1/chat/completions';
 
-    const res = await fetch(endpoint, {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        'Content-Type': 'application/json',
-        'HTTP-Referer': 'https://github.com/ceponatia/rpg-light', // Optional: for rankings
-        'X-Title': 'RPG-Light', // Optional: show in OpenRouter dashboard
-      },
-      body: JSON.stringify(body),
-      signal: controller.signal,
-    });
+      // Build request body (OpenAI-compatible format)
+      const body = {
+        model,
+        messages,
+        temperature: options.temperature,
+        top_p: options.top_p,
+        max_tokens: options.max_tokens,
+      };
 
-    if (!res.ok) {
-      const text = await safeText(res);
-      return { error: `OpenRouter error ${res.status}: ${text}` };
+      const res = await fetch(endpoint, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${apiKey}`,
+          'Content-Type': 'application/json',
+          'HTTP-Referer': 'https://github.com/ceponatia/rpg-light', // Optional: for rankings
+          'X-Title': 'RPG-Light', // Optional: show in OpenRouter dashboard
+        },
+        body: JSON.stringify(body),
+        signal: controller.signal,
+      });
+
+      if (!res.ok) {
+        const text = await safeText(res);
+        const isRetryable = res.status >= 500 || res.status === 429;
+
+        if (isRetryable && attempt < maxRetries) {
+          lastError = `OpenRouter error ${res.status}: ${text}`;
+          console.warn(`[OpenRouter] Attempt ${attempt + 1} failed (${res.status}), retrying...`);
+          await new Promise((r) => setTimeout(r, 1000 * (attempt + 1)));
+          continue;
+        }
+        return { error: `OpenRouter error ${res.status}: ${text}` };
+      }
+
+      const payload = (await safeJson<OpenRouterResponse>(res)) ?? {};
+
+      // Extract assistant message from OpenAI-compatible response
+      const assistantReply = extractAssistantContent(payload);
+      if (assistantReply) {
+        return { message: { role: 'assistant', content: assistantReply } };
+      }
+
+      // Check for error in response
+      if (payload.error) {
+        return { error: `OpenRouter API error: ${payload.error.message ?? 'Unknown error'}` };
+      }
+
+      return { error: 'Invalid OpenRouter response' };
+    } catch (error) {
+      if (isAbortError(error)) {
+        return { error: `OpenRouter request timed out after ${timeoutMs}ms` };
+      }
+
+      const msg = getErrorMessage(error, 'Unknown error');
+      if (attempt < maxRetries) {
+        lastError = msg;
+        console.warn(`[OpenRouter] Attempt ${attempt + 1} failed (${msg}), retrying...`);
+        await new Promise((r) => setTimeout(r, 1000 * (attempt + 1)));
+        continue;
+      }
+      return { error: `OpenRouter request failed: ${msg}` };
+    } finally {
+      clearTimeout(timer);
     }
-
-    const payload = (await safeJson<OpenRouterResponse>(res)) ?? {};
-
-    // Extract assistant message from OpenAI-compatible response
-    const assistantReply = extractAssistantContent(payload);
-    if (assistantReply) {
-      return { message: { role: 'assistant', content: assistantReply } };
-    }
-
-    // Check for error in response
-    if (payload.error) {
-      return { error: `OpenRouter API error: ${payload.error.message ?? 'Unknown error'}` };
-    }
-
-    return { error: 'Invalid OpenRouter response' };
-  } catch (error) {
-    const msg = getErrorMessage(error, 'Unknown error');
-    return { error: `OpenRouter request failed: ${msg}` };
-  } finally {
-    clearTimeout(timer);
   }
+
+  return { error: lastError ?? 'OpenRouter request failed after retries' };
 }
 
 function extractAssistantContent(payload: OpenRouterResponse | null | undefined): string | null {
