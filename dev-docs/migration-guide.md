@@ -186,8 +186,8 @@ app.get('/health', async (c) => {
   // DB check
   let dbOk = false;
   try {
-    const { prisma } = await import('./db/prisma.js');
-    await prisma.$queryRaw`SELECT 1`;
+    const { db } = await import('./db/client.js');
+    await db.$queryRaw`SELECT 1`;
     dbOk = true;
   } catch (error) {
     console.warn('Database health check failed', error);
