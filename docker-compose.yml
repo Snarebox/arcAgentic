@@ -23,7 +23,6 @@ services:
     working_dir: /app
     volumes:
       - .:/app
-      - /app/node_modules
     environment:
       - PORT=3001
       - DATABASE_URL=postgres://postgres:postgres@postgres:5432/minirpg
@@ -53,9 +52,8 @@ services:
     working_dir: /app
     volumes:
       - .:/app
-      - /app/node_modules
     environment:
-      - VITE_API_BASE_URL=http://localhost:3001
+      - VITE_API_BASE_URL=http://192.168.0.62:3001
     ports:
       - '5173:5173'
     command: >-
