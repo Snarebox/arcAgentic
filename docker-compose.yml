@@ -53,7 +53,7 @@ services:
     volumes:
       - .:/app
     environment:
-      - VITE_API_BASE_URL=http://192.168.0.62:3001
+      - VITE_API_BASE_URL=http://localhost:3001
     ports:
       - '5173:5173'
     command: >-
