@@ -32,10 +32,11 @@ services:
       - TEMPERATURE=0.7
       - TOP_P=0.9
       - NODE_ENV=development
+      - ADMIN_DB_TOOLS=true
     ports:
       - '3001:3001'
     command: >-
-      sh -c "pnpm -F @minimal-rpg/schemas build && node scripts/validate-data.js && pnpm -F @minimal-rpg/db db:migrate && pnpm -F @minimal-rpg/api dev"
+      sh -c "pnpm -F @minimal-rpg/schemas build && pnpm -F @minimal-rpg/db build && node scripts/validate-data.js && pnpm -F @minimal-rpg/db db:migrate && pnpm -F @minimal-rpg/api dev"
     healthcheck:
       test: ['CMD', 'curl', '-f', 'http://localhost:3001/health']
       interval: 5s
@@ -54,6 +55,7 @@ services:
       - .:/app
     environment:
       - VITE_API_BASE_URL=http://localhost:3001
+      - VITE_DB_TOOLS=true
     ports:
       - '5173:5173'
     command: >-
