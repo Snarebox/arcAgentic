@@ -20,6 +20,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile.dev
+    user: '${UID:-1000}:${GID:-1000}'
     working_dir: /app
     volumes:
       - .:/app
@@ -52,6 +53,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile.dev
+    user: '${UID:-1000}:${GID:-1000}'
     working_dir: /app
     volumes:
       - .:/app
