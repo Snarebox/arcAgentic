@@ -23,7 +23,7 @@ import type {
   ToolCall,
   ChatMessageWithTools,
 } from './types.js';
-import { buildProviderOptions } from './providerUtils.js';
+import { buildProviderOptions } from './types.js';
 
 // Chat message (OpenAI-compatible) used when talking to OpenRouter
 interface ChatMessage {
