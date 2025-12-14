@@ -59,7 +59,7 @@ services:
     volumes:
       - .:/app
     environment:
-      - VITE_API_BASE_URL=http://localhost:3001
+      - VITE_API_BASE_URL=${VITE_API_BASE_URL:-http://localhost:3001}
       - VITE_DB_TOOLS=true
       - VITE_USE_TURNS_API=true
       - VITE_GOVERNOR_DEV_MODE=true
