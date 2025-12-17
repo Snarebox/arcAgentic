@@ -441,6 +441,233 @@ export const UPDATE_RELATIONSHIP_TOOL: ToolDefinition = {
 };
 
 // =============================================================================
+// PRIORITY 6: Hygiene & Sensory System Tools
+// =============================================================================
+
+/**
+ * Update NPC hygiene tool - tracks hygiene decay for NPCs.
+ * Called after activity-based turns to accumulate decay points.
+ *
+ * STATUS: IMPLEMENTED - Uses hygiene state system
+ * @see dev-docs/planning/opus-refactor.md Phase 5
+ */
+export const UPDATE_NPC_HYGIENE_TOOL: ToolDefinition = {
+  type: 'function',
+  function: {
+    name: 'update_npc_hygiene',
+    description:
+      "Update an NPC's hygiene state based on their recent activity. Use this after " +
+      'narrative events that would affect body cleanliness (physical exertion, sweating, ' +
+      'environmental exposure, bathing). This affects sensory descriptions.',
+    parameters: {
+      type: 'object',
+      properties: {
+        npc_id: {
+          type: 'string',
+          description: 'The NPC whose hygiene to update',
+        },
+        activity: {
+          type: 'string',
+          enum: ['idle', 'walking', 'running', 'labor', 'combat'],
+          description:
+            "Activity level that affects decay rate. 'idle' (resting), 'walking' (normal movement), " +
+            "'running' (fast movement/light exercise), 'labor' (physical work), 'combat' (fighting/intense exertion)",
+        },
+        turns_elapsed: {
+          type: 'number',
+          description: 'Number of turns since last hygiene update (default: 1)',
+        },
+        footwear: {
+          type: 'string',
+          enum: [
+            'barefoot',
+            'sandals',
+            'shoes_with_socks',
+            'shoes_no_socks',
+            'boots_heavy',
+            'boots_sealed',
+          ],
+          description:
+            "Current footwear, affects feet hygiene decay. 'barefoot' (minimal decay), " +
+            "'sandals' (low decay), 'shoes_with_socks' (normal), 'shoes_no_socks' (high), " +
+            "'boots_heavy' (high), 'boots_sealed' (very high)",
+        },
+        environment: {
+          type: 'string',
+          enum: ['dry', 'humid', 'rain', 'swimming'],
+          description:
+            "Environmental conditions. 'dry' (reduced decay), 'humid' (increased decay), " +
+            "'rain' (slight cleaning), 'swimming' (full cleaning effect)",
+        },
+        cleaned_parts: {
+          type: 'array',
+          items: { type: 'string' },
+          description:
+            "Body parts that were cleaned during this turn (e.g., ['hands', 'face'] if washing)",
+        },
+      },
+      required: ['npc_id', 'activity'],
+    },
+  },
+};
+
+/**
+ * Get sensory modifier tool - retrieves hygiene-based sensory description modifiers.
+ * Used to enrich sensory descriptions with hygiene state.
+ *
+ * STATUS: IMPLEMENTED - Uses hygiene state system
+ */
+export const GET_HYGIENE_SENSORY_TOOL: ToolDefinition = {
+  type: 'function',
+  function: {
+    name: 'get_hygiene_sensory',
+    description:
+      "Get sensory description modifiers based on an NPC's hygiene state. Use this " +
+      'when generating smell, touch, or taste descriptions to add realism based on ' +
+      'accumulated body state.',
+    parameters: {
+      type: 'object',
+      properties: {
+        npc_id: {
+          type: 'string',
+          description: 'The NPC to get hygiene modifiers for',
+        },
+        body_part: {
+          type: 'string',
+          description: 'Specific body part (e.g., feet, armpits, hair, torso, neck, hands, legs)',
+        },
+        sense_type: {
+          type: 'string',
+          enum: ['smell', 'touch', 'taste'],
+          description: 'Type of sensory perception to get modifier for',
+        },
+      },
+      required: ['npc_id', 'body_part', 'sense_type'],
+    },
+  },
+};
+
+// =============================================================================
+// PRIORITY 7: Schedule & Location Assignment Tools
+// =============================================================================
+
+/**
+ * Generate NPC schedule tool - creates a schedule from a template.
+ * Uses available locations and NPC profile to resolve placeholders.
+ *
+ * STATUS: IMPLEMENTED - Uses schedule template system
+ * @see dev-docs/planning/opus-refactor.md Phase 6
+ */
+export const GENERATE_NPC_SCHEDULE_TOOL: ToolDefinition = {
+  type: 'function',
+  function: {
+    name: 'generate_npc_schedule',
+    description:
+      "Generate or update an NPC's daily schedule from a template. " +
+      'Maps template placeholders (like $homeLocation, $workLocation) to actual ' +
+      "location IDs based on the NPC's profile and available locations.",
+    parameters: {
+      type: 'object',
+      properties: {
+        npc_id: {
+          type: 'string',
+          description: 'The NPC to generate a schedule for',
+        },
+        template_id: {
+          type: 'string',
+          description:
+            "Schedule template ID to use (e.g., 'template-shopkeeper', 'template-guard'). " +
+            'If not provided, a suitable template will be chosen based on NPC occupation.',
+        },
+        placeholder_mappings: {
+          type: 'object',
+          description:
+            'Map of placeholder names to location IDs (e.g., {"homeLocation": "loc-123", "workLocation": "loc-456"}). ' +
+            'If not fully provided, will attempt to infer from NPC profile and available locations.',
+        },
+      },
+      required: ['npc_id'],
+    },
+  },
+};
+
+/**
+ * Assign NPC location tool - assigns an NPC to an appropriate location.
+ * Uses NPC profile (occupation, interests) to find best-fit location.
+ *
+ * STATUS: IMPLEMENTED - Uses location matching
+ * @see dev-docs/planning/opus-refactor.md Phase 6
+ */
+export const ASSIGN_NPC_LOCATION_TOOL: ToolDefinition = {
+  type: 'function',
+  function: {
+    name: 'assign_npc_location',
+    description:
+      'Assign an NPC to an appropriate starting location based on their profile. ' +
+      "Analyzes the NPC's occupation and interests to find the best-fit location " +
+      'from available options.',
+    parameters: {
+      type: 'object',
+      properties: {
+        npc_id: {
+          type: 'string',
+          description: 'The NPC to assign a location to',
+        },
+        location_type: {
+          type: 'string',
+          enum: ['home', 'work', 'social', 'any'],
+          description:
+            "Type of location to assign. 'home' for residential, 'work' for occupational, " +
+            "'social' for leisure/public spaces, 'any' for best overall match.",
+        },
+        available_location_ids: {
+          type: 'array',
+          items: { type: 'string' },
+          description:
+            'List of location IDs to consider. If not provided, all session locations will be used.',
+        },
+      },
+      required: ['npc_id'],
+    },
+  },
+};
+
+/**
+ * Get schedule resolution tool - resolves current location/activity from schedule.
+ * Returns where an NPC should be at a given time.
+ *
+ * STATUS: IMPLEMENTED - Uses schedule resolution
+ */
+export const GET_SCHEDULE_RESOLUTION_TOOL: ToolDefinition = {
+  type: 'function',
+  function: {
+    name: 'get_schedule_resolution',
+    description:
+      "Resolve an NPC's current or planned location and activity based on their schedule. " +
+      'Returns where they should be and what they should be doing at a specific time.',
+    parameters: {
+      type: 'object',
+      properties: {
+        npc_id: {
+          type: 'string',
+          description: 'The NPC to resolve schedule for',
+        },
+        hour: {
+          type: 'number',
+          description:
+            'Hour (0-23) to resolve schedule for. If not provided, uses current game time.',
+        },
+        minute: {
+          type: 'number',
+          description: 'Minute (0-59) to resolve schedule for. Defaults to 0 if hour provided.',
+        },
+      },
+      required: ['npc_id'],
+    },
+  },
+};
+
+// =============================================================================
 // Tool Collections
 // =============================================================================
 
@@ -466,6 +693,16 @@ export const TIME_TOOLS: ToolDefinition[] = [ADVANCE_TIME_TOOL];
 /** Priority 5 tools - future implementation */
 export const RELATIONSHIP_TOOLS: ToolDefinition[] = [GET_NPC_MEMORY_TOOL, UPDATE_RELATIONSHIP_TOOL];
 
+/** Priority 6 tools - hygiene and sensory system */
+export const HYGIENE_TOOLS: ToolDefinition[] = [UPDATE_NPC_HYGIENE_TOOL, GET_HYGIENE_SENSORY_TOOL];
+
+/** Priority 7 tools - schedule and location assignment */
+export const SCHEDULE_TOOLS: ToolDefinition[] = [
+  GENERATE_NPC_SCHEDULE_TOOL,
+  ASSIGN_NPC_LOCATION_TOOL,
+  GET_SCHEDULE_RESOLUTION_TOOL,
+];
+
 /** All game tools - use for full tool-calling mode */
 export const ALL_GAME_TOOLS: ToolDefinition[] = [
   ...CORE_TOOLS,
@@ -474,6 +711,8 @@ export const ALL_GAME_TOOLS: ToolDefinition[] = [
   ...INVENTORY_TOOLS,
   ...TIME_TOOLS,
   ...RELATIONSHIP_TOOLS,
+  ...HYGIENE_TOOLS,
+  ...SCHEDULE_TOOLS,
 ];
 
 /**

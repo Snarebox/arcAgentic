@@ -212,6 +212,216 @@ export async function createSession(
   });
 }
 
+/**
+ * Request payload for creating a full session via /sessions/create-full
+ */
+export interface CreateFullSessionRequest {
+  settingId: string;
+  personaId?: string;
+  startLocationId?: string;
+  startTime?: {
+    year?: number;
+    month?: number;
+    day?: number;
+    hour: number;
+    minute: number;
+  };
+  secondsPerTurn?: number;
+  npcs: {
+    characterId: string;
+    role: string;
+    tier: string;
+    startLocationId?: string;
+    label?: string;
+  }[];
+  relationships?: {
+    fromActorId: string;
+    toActorId: string;
+    relationshipType: string;
+    affinitySeed?: {
+      trust?: number;
+      fondness?: number;
+      fear?: number;
+    };
+  }[];
+  tags?: {
+    tagId: string;
+    scope: string;
+    targetId?: string;
+  }[];
+}
+
+/**
+ * Response from /sessions/create-full endpoint
+ */
+export interface CreateFullSessionResponse {
+  id: string;
+  settingTemplateId: string;
+  settingInstanceId: string;
+  personaId: string | null;
+  startLocationId: string | null;
+  secondsPerTurn: number;
+  createdAt: string;
+  npcs: {
+    instanceId: string;
+    templateId: string;
+    role: string;
+    tier: string;
+    label: string | null;
+    startLocationId: string | null;
+  }[];
+  tagBindings: {
+    id: string;
+    tagId: string;
+    targetType: string;
+    targetEntityId: string | null;
+  }[];
+  relationships: {
+    fromActorId: string;
+    toActorId: string;
+    relationshipType: string;
+  }[];
+}
+
+/**
+ * Create a full session with all related entities in a single transaction.
+ * Uses the /sessions/create-full endpoint.
+ */
+export async function createSessionFull(
+  config: CreateFullSessionRequest,
+  signal?: AbortSignal
+): Promise<CreateFullSessionResponse> {
+  return http<CreateFullSessionResponse>('/sessions/create-full', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(config),
+    ...(signal && { signal }),
+  });
+}
+
+// ============================================================================
+// Workspace Drafts API
+// ============================================================================
+
+/**
+ * A workspace draft stored on the server
+ */
+export interface WorkspaceDraft {
+  id: string;
+  userId: string;
+  name: string | null;
+  workspaceState: Record<string, unknown>;
+  currentStep: string;
+  validationState: Record<string, unknown> | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+/**
+ * List workspace drafts for a user
+ */
+export async function listWorkspaceDrafts(
+  userId = 'default',
+  limit = 20
+): Promise<WorkspaceDraft[]> {
+  const result = await http<{ ok: true; drafts: WorkspaceDraft[] }>(
+    `/workspace-drafts?user_id=${encodeURIComponent(userId)}&limit=${limit}`
+  );
+  return result.drafts;
+}
+
+/**
+ * Get a single workspace draft by ID
+ */
+export async function getWorkspaceDraft(id: string): Promise<WorkspaceDraft | null> {
+  try {
+    const result = await http<{ ok: true; draft: WorkspaceDraft }>(
+      `/workspace-drafts/${encodeURIComponent(id)}`
+    );
+    return result.draft;
+  } catch (err) {
+    // 404 returns null
+    if (err instanceof Error && err.message.includes('404')) {
+      return null;
+    }
+    throw err;
+  }
+}
+
+/**
+ * Create a new workspace draft
+ */
+export async function createWorkspaceDraft(params: {
+  userId?: string;
+  name?: string;
+  workspaceState?: Record<string, unknown>;
+  currentStep?: string;
+}): Promise<WorkspaceDraft> {
+  const userId = params.userId ?? 'default';
+  const result = await http<{ ok: true; draft: WorkspaceDraft }>(
+    `/workspace-drafts?user_id=${encodeURIComponent(userId)}`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        name: params.name,
+        workspaceState: params.workspaceState,
+        currentStep: params.currentStep,
+      }),
+    }
+  );
+  return result.draft;
+}
+
+/**
+ * Update an existing workspace draft
+ */
+export async function updateWorkspaceDraft(
+  id: string,
+  updates: {
+    name?: string | null;
+    workspaceState?: Record<string, unknown>;
+    currentStep?: string;
+    validationState?: Record<string, unknown>;
+  }
+): Promise<WorkspaceDraft | null> {
+  try {
+    const result = await http<{ ok: true; draft: WorkspaceDraft }>(
+      `/workspace-drafts/${encodeURIComponent(id)}`,
+      {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updates),
+      }
+    );
+    return result.draft;
+  } catch (err) {
+    // 404 returns null
+    if (err instanceof Error && err.message.includes('404')) {
+      return null;
+    }
+    throw err;
+  }
+}
+
+/**
+ * Delete a workspace draft
+ */
+export async function deleteWorkspaceDraft(id: string): Promise<boolean> {
+  try {
+    await http<null>(`/workspace-drafts/${encodeURIComponent(id)}`, {
+      method: 'DELETE',
+    });
+    return true;
+  } catch (err) {
+    // 404 returns false
+    if (err instanceof Error && err.message.includes('404')) {
+      return false;
+    }
+    throw err;
+  }
+}
+
 export async function sendMessage(
   sessionId: string,
   content: string,
@@ -497,4 +707,126 @@ export async function deleteItem(id: string, signal?: AbortSignal): Promise<void
     method: 'DELETE',
     ...(signal && { signal }),
   });
+}
+
+// ============ ENTITY USAGE ============
+
+export interface SessionUsageInfo {
+  sessionId: string;
+  createdAt: string;
+  role?: string;
+}
+
+export interface EntityUsageSummary {
+  entityId: string;
+  entityType: 'character' | 'setting' | 'persona' | 'location';
+  sessions: SessionUsageInfo[];
+  totalCount: number;
+}
+
+/**
+ * Get sessions that use a specific character template.
+ */
+export async function getCharacterUsage(
+  characterId: string,
+  signal?: AbortSignal
+): Promise<EntityUsageSummary> {
+  return http<EntityUsageSummary>(
+    `/entity-usage/characters/${encodeURIComponent(characterId)}`,
+    signal ? { signal } : undefined
+  );
+}
+
+/**
+ * Get sessions that use a specific setting template.
+ */
+export async function getSettingUsage(
+  settingId: string,
+  signal?: AbortSignal
+): Promise<EntityUsageSummary> {
+  return http<EntityUsageSummary>(
+    `/entity-usage/settings/${encodeURIComponent(settingId)}`,
+    signal ? { signal } : undefined
+  );
+}
+
+/**
+ * Get sessions that use a specific persona.
+ */
+export async function getPersonaUsage(
+  personaId: string,
+  signal?: AbortSignal
+): Promise<EntityUsageSummary> {
+  return http<EntityUsageSummary>(
+    `/entity-usage/personas/${encodeURIComponent(personaId)}`,
+    signal ? { signal } : undefined
+  );
+}
+
+// =============================================================================
+// User Preferences API
+// =============================================================================
+
+export type WorkspaceMode = 'wizard' | 'compact';
+
+export interface UserPreferences {
+  workspaceMode?: WorkspaceMode;
+  [key: string]: unknown;
+}
+
+/**
+ * Get user preferences
+ */
+export async function getUserPreferences(userId = 'default'): Promise<UserPreferences> {
+  const result = await http<{ ok: true; preferences: UserPreferences }>(
+    `/user/preferences?user_id=${encodeURIComponent(userId)}`
+  );
+  return result.preferences;
+}
+
+/**
+ * Update user preferences (merges with existing)
+ */
+export async function updateUserPreferences(
+  preferences: Partial<UserPreferences>,
+  userId = 'default'
+): Promise<UserPreferences> {
+  const result = await http<{ ok: true; preferences: UserPreferences }>(
+    `/user/preferences?user_id=${encodeURIComponent(userId)}`,
+    {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(preferences),
+    }
+  );
+  return result.preferences;
+}
+
+/**
+ * Get workspace mode preference
+ */
+export async function getWorkspaceModePreference(
+  userId = 'default'
+): Promise<WorkspaceMode> {
+  const result = await http<{ ok: true; mode: WorkspaceMode }>(
+    `/user/preferences/workspace-mode?user_id=${encodeURIComponent(userId)}`
+  );
+  return result.mode;
+}
+
+/**
+ * Set workspace mode preference
+ */
+export async function setWorkspaceModePreference(
+  mode: WorkspaceMode,
+  userId = 'default'
+): Promise<void> {
+  await http<{ ok: true; mode: WorkspaceMode }>(
+    `/user/preferences/workspace-mode?user_id=${encodeURIComponent(userId)}`,
+    {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ mode }),
+    }
+  );
 }

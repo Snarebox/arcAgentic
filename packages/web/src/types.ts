@@ -1,10 +1,12 @@
 import type { Dispatch, SetStateAction } from 'react';
 import type { Build, ItemCategory } from '@minimal-rpg/schemas';
+import type { CreateFullSessionRequest } from './shared/api/client.js';
 
 export interface CharacterSummary {
   id: string;
   name: string;
   summary: string;
+  archetype?: string;
   tags?: string[];
   source?: 'fs' | 'db';
 }
@@ -19,6 +21,7 @@ export interface PersonaSummary {
   id: string;
   name: string;
   summary: string;
+  bio?: string;
   source: 'db';
 }
 
@@ -230,12 +233,14 @@ export type ViewMode =
   | 'item-library'
   | 'session-library'
   | 'persona-library'
+  | 'location-library'
   | 'session-builder'
   | 'character-builder'
   | 'setting-builder'
   | 'tag-builder'
   | 'item-builder'
   | 'persona-builder'
+  | 'location-builder'
   | 'docs';
 
 export interface AppControllerStateSlice {
@@ -244,6 +249,8 @@ export interface AppControllerStateSlice {
   selectedTagIds: string[];
   currentSessionId: string | null;
   builderId: string | null;
+  locationMapId: string | null;
+  locationSettingId: string | null;
   viewMode: ViewMode;
   creating: boolean;
   createError: string | null;
@@ -278,12 +285,16 @@ export interface AppControllerActions {
   refreshSettings: () => void;
   refreshPersonas: () => void;
   onStartSession: () => Promise<void>;
+  onCreateSessionFull: (config: CreateFullSessionRequest) => Promise<string>;
+  onSessionCreated: (sessionId: string) => void;
   handleDeleteSession: (sessionId: string) => Promise<void>;
   navigateToCharacterBuilder: (id: string | null) => void;
   navigateToSettingBuilder: (id: string | null) => void;
   navigateToTagBuilder: (id?: string | null) => void;
   navigateToItemBuilder: (id?: string | null) => void;
   navigateToPersonaBuilder: (id?: string | null) => void;
+  navigateToLocationLibrary: () => void;
+  navigateToLocationBuilder: (params?: { mapId?: string; settingId?: string } | null) => void;
   navigateToCharacterLibrary: () => void;
   navigateToSettingLibrary: () => void;
   navigateToTagLibrary: () => void;

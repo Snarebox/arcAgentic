@@ -106,6 +106,17 @@ pnpm core:quit
 
 ### Test Scripts
 
+**Unit tests** (vitest): Run tests for packages with test coverage:
+
+```bash
+pnpm test                                  # Run all tests across monorepo
+pnpm -F @minimal-rpg/web test              # Web package (workspace store)
+pnpm -F @minimal-rpg/api test              # API package (session creation)
+pnpm -F @minimal-rpg/agents test           # Agents package
+pnpm -F @minimal-rpg/state-manager test    # State manager package
+pnpm -F @minimal-rpg/retrieval test        # Retrieval package
+```
+
 **Tool calling test**: Test LLM function calling with RPG tools:
 
 ```bash
@@ -259,6 +270,19 @@ Run `pnpm check` and `node ./scripts/validate-data.js` after schema or data chan
 - **Flexible Details**: Label/value entries with area, importance, tags
 - **Gender Field**: Optional gender with context-aware body regions in UI
 - **Random Generation**: Themed character generator with "Fill Missing Fields" button
+- **Progressive Disclosure**: Three complexity modes in Character Builder
+  - Quick Mode (5 fields): Name, age, gender, summary, profile picture
+  - Standard Mode (~20 fields): Quick + personality traits, backstory, key appearance, tags
+  - Advanced Mode (~100 fields): Standard + detailed physique, body sensory map, detailed personality
+
+### Hygiene & Sensory System
+
+- **Dynamic Hygiene State**: Per-NPC, per-body-part hygiene tracking with decay over time
+- **Activity Multipliers**: Different activities (idle, walking, running, labor, combat) affect decay rate
+- **Footwear Modifiers**: Barefoot/sandals/shoes/boots affect feet hygiene decay
+- **Environment Effects**: Dry/humid/rain/swimming conditions modify decay
+- **Sensory Modifiers**: Context-aware smell/touch/taste descriptions based on hygiene level (0-4)
+- **Governor Tools**: `update_npc_hygiene` and `get_hygiene_sensory` for runtime state management
 
 ### Intent & Interaction
 
@@ -271,11 +295,32 @@ Run `pnpm check` and `node ./scripts/validate-data.js` after schema or data chan
   - Setting/location context with atmosphere and exits
   - Body map sensory data summary (available regions and senses)
   - Player persona context for personalized NPC responses
-  - 18-message conversation history window for context continuity
+  - 10-message conversation history window for context continuity (optimized for tool pattern retention)
   - The LLM understands: "He looks at Taylor's face" (sensory) vs "He looks up hopefully" (narrative)
+- **Tool Call History Persistence**: Maintains tool calling patterns in long conversations
+  - `tool_call_history` table stores tool calls per session/turn
+  - `conversation_summaries` table for future LLM-generated summaries
+  - Tool usage statistics and hints injected into context for sessions with established patterns
+  - Prevents pattern drift where LLM stops using tools after many turns
 
 ### Session Management
 
+- **Session Workspace**: Multi-step wizard for session configuration (WIP)
+  - Zustand store with localStorage persistence and server sync
+  - Step 1: Setting selection with time configuration
+  - Step 2: NPC cast configuration with role/tier assignment
+  - Step 3: Player persona selection or anonymous play
+  - Step 4: Tags and rules selection
+  - Step 5: Review and launch
+  - Compact Builder mode for power users
+- **Transactional Creation**: `POST /sessions/create-full` atomic endpoint
+- **Entity Usage Tracking**: "Where is this used?" API endpoints
+  - `GET /entity-usage/characters/:id` - Sessions using a character
+  - `GET /entity-usage/settings/:id` - Sessions using a setting
+  - `GET /entity-usage/personas/:id` - Sessions using a persona
+  - UI component: EntityUsagePanel with collapsible session list
+- **Session Tags Injection**: Active tags injected into Governor system prompts
+- **Draft Persistence**: Auto-save workspace drafts to database
 - **Immutable Templates**: Character/setting templates + per-session snapshots with overrides
 - **Per-NPC Transcripts**: Separate conversation history for each NPC
 - **State Persistence**: Location, inventory, time slices in dedicated tables
@@ -305,6 +350,25 @@ Run `pnpm check` and `node ./scripts/validate-data.js` after schema or data chan
 - **NPC Awareness**: How NPCs perceive the player (unaware/peripheral/noticed/focused)
 - **NPC Availability**: Sleep, travel, busy states with override mechanics
 - **Lazy Simulation Cache**: Tiered simulation strategy for performance
+- **LocationGraphService**: Stateless service for location graph operations
+  - Transforms rich LocationMap (nodes/connections/ports) to runtime-usable formats
+  - Exit resolution with direction matching (north, up, "through the door")
+  - BFS pathfinding with travel time calculation
+  - Bridges to ToolExecutor's LocationInfo format
+  - Session-specific location maps with DB persistence
+
+### Location Prefabs
+
+- **Prefab Library**: Create reusable location templates (taverns, shops, dungeons) via Locations sidebar
+- **Category Grouping**: Prefabs organized by category for easy browsing
+- **Location Types**: Region, Building, and Room node types with tree structure
+- **Entry Points**: Configure which locations serve as entry points for the prefab
+- **Session Integration**: Insert prefabs into session maps for quick world building
+- **Auto-Linked Exits**: Drawing a connection between two nodes auto-creates bidirectional exits
+  - Each location node gets an exit with direction (north/south/etc.) and target reference
+  - Exits are editable in the Properties panel (direction, locked status, travel time)
+  - Deleting a connection removes the associated exits from both nodes
+  - Visual exit indicators on nodes show configured directions
 
 ### Time System
 
@@ -334,6 +398,10 @@ Run `pnpm check` and `node ./scripts/validate-data.js` after schema or data chan
 - **Schedule Templates**: Reusable patterns (shopkeeper, guard, tavern keeper, noble, wanderer)
 - **Placeholder Resolution**: Templates with $workLocation, $homeLocation substitution
 - **Common Activities**: Pre-defined activities (sleeping, working, socializing, etc.)
+- **Governor Tools**:
+  - `generate_npc_schedule`: Create schedule from template with placeholder resolution
+  - `assign_npc_location`: Match NPC profile to appropriate location
+  - `get_schedule_resolution`: Resolve current location/activity from schedule
 
 ### NPC Simulation System
 

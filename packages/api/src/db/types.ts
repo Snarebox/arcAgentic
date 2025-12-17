@@ -100,6 +100,8 @@ export interface SettingInstanceRow {
   templateSnapshot: string;
   profileJson: string;
   overridesJson?: string;
+  createdAt?: string | Date | null;
+  updatedAt?: string | Date | null;
 }
 
 export interface MessageRow {
@@ -153,6 +155,42 @@ export interface SessionPersonaRow {
   updatedAt?: string | Date | null;
 }
 
+// NPC hygiene state row
+export interface NpcHygieneStateRow {
+  id: string;
+  sessionId: string;
+  npcId: string;
+  bodyPart: string;
+  points: number;
+  level: number;
+  lastUpdatedAt?: Date | null;
+  createdAt?: Date | null;
+}
+
+// Schedule template row
+export interface ScheduleTemplateRow {
+  id: string;
+  name: string;
+  description: string | null;
+  templateData: unknown;
+  requiredPlaceholders: string[];
+  isSystem: boolean;
+  createdAt?: Date | null;
+  updatedAt?: Date | null;
+}
+
+// NPC schedule row (resolved schedule for a specific NPC in a session)
+export interface NpcScheduleRow {
+  id: string;
+  sessionId: string;
+  npcId: string;
+  templateId: string | null;
+  scheduleData: unknown;
+  placeholderMappings: unknown;
+  createdAt?: Date | null;
+  updatedAt?: Date | null;
+}
+
 export interface ProfileTable<T extends ProfileRow> {
   findMany(): Promise<T[]>;
   findUnique(args: { where: { id: string } }): Promise<T | null>;
@@ -169,7 +207,7 @@ export interface CharacterInstanceTable {
     where: { id?: string; sessionId?: string; role?: string };
   }): Promise<CharacterInstanceRow | null>;
   findMany(args?: {
-    where?: { sessionId?: string; role?: string };
+    where?: { sessionId?: string; templateId?: string; role?: string };
     orderBy?: { createdAt?: 'asc' | 'desc' };
   }): Promise<CharacterInstanceRow[]>;
   create(args: {
@@ -195,6 +233,10 @@ export interface SettingInstanceTable {
   findUnique(args: {
     where: { id?: string; sessionId?: string };
   }): Promise<SettingInstanceRow | null>;
+  findMany(args?: {
+    where?: { sessionId?: string; templateId?: string };
+    orderBy?: { createdAt?: 'asc' | 'desc' };
+  }): Promise<SettingInstanceRow[]>;
   create(args: {
     data: {
       id: string;
@@ -284,6 +326,10 @@ export interface PrismaClientLike {
     delete(args: { where: { id: string } }): Promise<void>;
   };
   sessionPersona: {
+    findMany(args?: {
+      where?: { sessionId?: string; personaId?: string };
+      orderBy?: { createdAt?: 'asc' | 'desc' };
+    }): Promise<SessionPersonaRow[]>;
     findUnique(args: { where: { sessionId: string } }): Promise<SessionPersonaRow | null>;
     create(args: {
       data: { sessionId: string; personaId: string; profileJson: string; overridesJson?: string };
@@ -293,6 +339,82 @@ export interface PrismaClientLike {
       data: { profileJson?: string; overridesJson?: string; updatedAt?: string };
     }): Promise<SessionPersonaRow | null>;
     delete(args: { where: { sessionId: string } }): Promise<void>;
+  };
+  npcHygieneState: {
+    findMany(args?: {
+      where?: { sessionId?: string; npcId?: string; bodyPart?: string };
+    }): Promise<NpcHygieneStateRow[]>;
+    findUnique(args: {
+      where: { sessionId_npcId_bodyPart: { sessionId: string; npcId: string; bodyPart: string } };
+    }): Promise<NpcHygieneStateRow | null>;
+    upsert(args: {
+      where: { sessionId_npcId_bodyPart: { sessionId: string; npcId: string; bodyPart: string } };
+      create: {
+        sessionId: string;
+        npcId: string;
+        bodyPart: string;
+        points: number;
+        level: number;
+        lastUpdatedAt?: Date;
+      };
+      update: { points?: number; level?: number; lastUpdatedAt?: Date };
+    }): Promise<NpcHygieneStateRow>;
+    update(args: {
+      where: { sessionId_npcId_bodyPart: { sessionId: string; npcId: string; bodyPart: string } };
+      data: { points?: number; level?: number; lastUpdatedAt?: Date };
+    }): Promise<NpcHygieneStateRow>;
+    delete(args: {
+      where: { sessionId_npcId_bodyPart: { sessionId: string; npcId: string; bodyPart: string } };
+    }): Promise<void>;
+    deleteMany(args?: { where?: { sessionId?: string; npcId?: string } }): Promise<void>;
+  };
+  scheduleTemplate: {
+    findMany(args?: { where?: { isSystem?: boolean } }): Promise<ScheduleTemplateRow[]>;
+    findUnique(args: { where: { id: string } }): Promise<ScheduleTemplateRow | null>;
+    create(args: {
+      data: {
+        name: string;
+        description?: string;
+        templateData: unknown;
+        requiredPlaceholders: string[];
+        isSystem?: boolean;
+      };
+    }): Promise<ScheduleTemplateRow>;
+    update(args: {
+      where: { id: string };
+      data: {
+        name?: string;
+        description?: string;
+        templateData?: unknown;
+        requiredPlaceholders?: string[];
+      };
+    }): Promise<ScheduleTemplateRow>;
+    delete(args: { where: { id: string } }): Promise<void>;
+  };
+  npcSchedule: {
+    findMany(args?: { where?: { sessionId?: string; npcId?: string } }): Promise<NpcScheduleRow[]>;
+    findUnique(args: {
+      where: { sessionId_npcId: { sessionId: string; npcId: string } };
+    }): Promise<NpcScheduleRow | null>;
+    upsert(args: {
+      where: { sessionId_npcId: { sessionId: string; npcId: string } };
+      create: {
+        sessionId: string;
+        npcId: string;
+        templateId?: string;
+        scheduleData: unknown;
+        placeholderMappings?: unknown;
+      };
+      update: {
+        templateId?: string;
+        scheduleData?: unknown;
+        placeholderMappings?: unknown;
+      };
+    }): Promise<NpcScheduleRow>;
+    delete(args: {
+      where: { sessionId_npcId: { sessionId: string; npcId: string } };
+    }): Promise<void>;
+    deleteMany(args?: { where?: { sessionId?: string } }): Promise<void>;
   };
 }
 

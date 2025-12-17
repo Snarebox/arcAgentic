@@ -1,13 +1,15 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import {
   CharacterProfileSchema,
   type BodyMap,
+  type BodyRegion,
   type CharacterDetail,
   type Physique,
   type CharacterProfile,
   type AppearanceRegion,
   type PersonalityMap,
   type Gender,
+  BODY_REGIONS,
 } from '@minimal-rpg/schemas';
 import { generateCharacter, getTheme } from '@minimal-rpg/generator';
 import { mapZodErrorsToFields, parseBodyEntries } from '@minimal-rpg/utils';
@@ -25,8 +27,10 @@ import {
   mergeGeneratedIntoForm,
 } from './hooks/useCharacterBuilderForm.js';
 import {
+  MODE_CONFIGS,
   type AppearanceEntry,
   type BodySensoryEntry,
+  type CharacterBuilderMode,
   type DetailFormEntry,
   type FormFieldErrors,
   type FormKey,
@@ -197,7 +201,74 @@ function groupAppearanceEntries(
 }
 
 /**
+ * Regions that are stored in Physique schema (limited set).
+ * All other regions go into the body map's visual property.
+ */
+const PHYSIQUE_REGIONS = new Set<AppearanceRegion>([
+  'overall',
+  'hair',
+  'eyes',
+  'skin',
+  'arms',
+  'legs',
+  'feet',
+  'face',
+]);
+
+/**
+ * Gender-specific regions that should be excluded based on character gender.
+ */
+const FEMALE_ONLY_REGIONS = new Set<AppearanceRegion>(['breasts', 'nipples', 'vagina']);
+const MALE_ONLY_REGIONS = new Set<AppearanceRegion>(['penis']);
+
+/**
+ * Filter appearance entries to exclude gender-inappropriate regions.
+ * This ensures that if a user changes gender, stale data isn't saved.
+ */
+function filterAppearanceEntriesByGender(
+  entries: AppearanceEntry[],
+  gender: string
+): AppearanceEntry[] {
+  const normalizedGender = gender.trim().toLowerCase();
+
+  return entries.filter((entry) => {
+    // Female-only regions: exclude if male
+    if (FEMALE_ONLY_REGIONS.has(entry.region)) {
+      return normalizedGender === 'female' || normalizedGender === 'other' || !normalizedGender;
+    }
+    // Male-only regions: exclude if female
+    if (MALE_ONLY_REGIONS.has(entry.region)) {
+      return normalizedGender === 'male' || normalizedGender === 'other' || !normalizedGender;
+    }
+    return true;
+  });
+}
+
+/**
+ * Filter body sensory entries to exclude gender-inappropriate regions.
+ */
+function filterSensoryEntriesByGender(
+  entries: BodySensoryEntry[],
+  gender: string
+): BodySensoryEntry[] {
+  const normalizedGender = gender.trim().toLowerCase();
+
+  return entries.filter((entry) => {
+    // Female-only regions: exclude if male
+    if (FEMALE_ONLY_REGIONS.has(entry.region as AppearanceRegion)) {
+      return normalizedGender === 'female' || normalizedGender === 'other' || !normalizedGender;
+    }
+    // Male-only regions: exclude if female
+    if (MALE_ONLY_REGIONS.has(entry.region as AppearanceRegion)) {
+      return normalizedGender === 'male' || normalizedGender === 'other' || !normalizedGender;
+    }
+    return true;
+  });
+}
+
+/**
  * Build Physique from appearance entries.
+ * Only includes regions that fit in the Physique schema.
  */
 const buildPhysique = (form: FormState): CharacterProfile['physique'] | undefined => {
   // If free-text appearance is provided, use that
@@ -209,6 +280,14 @@ const buildPhysique = (form: FormState): CharacterProfile['physique'] | undefine
   // Group entries by region
   const grouped = groupAppearanceEntries(form.appearances);
   if (grouped.size === 0) {
+    return undefined;
+  }
+
+  // Check if we have any physique-compatible entries
+  const hasPhysiqueEntries = Array.from(grouped.keys()).some((region) =>
+    PHYSIQUE_REGIONS.has(region)
+  );
+  if (!hasPhysiqueEntries) {
     return undefined;
   }
 
@@ -257,36 +336,96 @@ const buildPhysique = (form: FormState): CharacterProfile['physique'] | undefine
 };
 
 /**
- * Build the body map from body sensory entries.
- * Each entry contains a region, type (scent/texture/visual), and raw text.
- * The raw text is parsed using parseBodyEntries which extracts intensity,
- * temperature, moisture and other attributes from natural language.
+ * Build visual data for body map from appearance entries that don't fit in Physique.
+ * Returns entries grouped by region with visual descriptions.
  */
-const buildBody = (entries: BodySensoryEntry[]): BodyMap | undefined => {
-  // Build a single text representation for parsing
+function buildAppearanceVisuals(
+  entries: AppearanceEntry[]
+): Map<BodyRegion, { description: string; features?: string[] }> {
+  const visuals = new Map<BodyRegion, { description: string; features?: string[] }>();
+
+  // Group by region
+  const grouped = groupAppearanceEntries(entries);
+
+  for (const [region, attrs] of grouped) {
+    // Skip regions that are handled by Physique schema
+    if (PHYSIQUE_REGIONS.has(region)) continue;
+
+    // Skip if not a valid body region
+    if (!BODY_REGIONS.includes(region as BodyRegion)) continue;
+
+    // Build description from all attributes
+    const descriptions: string[] = [];
+    const features: string[] = [];
+
+    for (const [attr, value] of attrs) {
+      if (attr === 'features' || attr === 'description') {
+        // Treat as features list
+        features.push(...splitList(value));
+      } else {
+        // Format as "attr: value"
+        descriptions.push(`${attr}: ${value}`);
+      }
+    }
+
+    if (descriptions.length > 0 || features.length > 0) {
+      const visual: { description: string; features?: string[] } = {
+        description: descriptions.length > 0 ? descriptions.join(', ') : (features[0] ?? ''),
+      };
+      if (features.length > 0) {
+        visual.features = features;
+      }
+      visuals.set(region as BodyRegion, visual);
+    }
+  }
+
+  return visuals;
+}
+
+/**
+ * Build the body map from body sensory entries and appearance entries.
+ * Sensory entries (scent, texture, flavor) are parsed from raw text.
+ * Appearance entries for non-Physique regions are added as visual data.
+ */
+const buildBody = (
+  sensoryEntries: BodySensoryEntry[],
+  appearanceEntries: AppearanceEntry[]
+): BodyMap | undefined => {
+  // Build visual data from appearance entries (for non-Physique regions)
+  const appearanceVisuals = buildAppearanceVisuals(appearanceEntries);
+
+  // Build sensory data from body sensory entries
   // Format: "region: type: raw text" for each entry
-  const lines = entries
+  const lines = sensoryEntries
     .filter((e) => e.raw.trim())
     .map((e) => `${e.region}: ${e.type}: ${e.raw.trim()}`);
 
-  if (lines.length === 0) {
-    return undefined;
+  let bodyMap: BodyMap = {};
+
+  if (lines.length > 0) {
+    // Join lines with semicolons for the parser
+    const input = lines.join('; ');
+    const result = parseBodyEntries(input);
+    bodyMap = result.bodyMap;
   }
 
-  // Join lines with semicolons for the parser
-  const input = lines.join('; ');
-  const result = parseBodyEntries(input);
+  // Merge appearance visuals into body map
+  for (const [region, visual] of appearanceVisuals) {
+    bodyMap[region] ??= {};
+    bodyMap[region].visual = visual;
+  }
 
-  // Check if the map has any non-empty regions
-  const hasContent = Object.values(result.bodyMap).some((region) => {
+  // Check if the map has any content
+  const hasContent = Object.values(bodyMap).some((region) => {
     if (!region) return false;
     const scentKeys = region.scent ? Object.keys(region.scent).length : 0;
     const textureKeys = region.texture ? Object.keys(region.texture).length : 0;
     const visualKeys = region.visual ? Object.keys(region.visual).length : 0;
-    return scentKeys > 0 || textureKeys > 0 || visualKeys > 0;
+    const flavorKeys = region.flavor ? Object.keys(region.flavor).length : 0;
+    return scentKeys > 0 || textureKeys > 0 || visualKeys > 0 || flavorKeys > 0;
   });
 
-  return hasContent ? result.bodyMap : undefined;
+  return hasContent ? bodyMap : undefined;
 };
 
 const mapDetailEntries = (entries: DetailFormEntry[]): CharacterDetail[] => {
@@ -314,9 +453,20 @@ const mapDetailEntries = (entries: DetailFormEntry[]): CharacterDetail[] => {
 
 const buildProfile = (form: FormState): CharacterProfile => {
   const tags = splitList(form.tags);
-  const physique = buildPhysique(form);
+
+  // Filter entries by gender to exclude inappropriate regions
+  const filteredAppearances = filterAppearanceEntriesByGender(form.appearances, form.gender);
+  const filteredSensory = filterSensoryEntriesByGender(form.bodySensory, form.gender);
+
+  // Build with filtered entries
+  const formWithFilteredEntries = {
+    ...form,
+    appearances: filteredAppearances,
+  };
+
+  const physique = buildPhysique(formWithFilteredEntries);
   const details = mapDetailEntries(form.details);
-  const body = buildBody(form.bodySensory);
+  const body = buildBody(filteredSensory, filteredAppearances);
   const personalityMap = buildPersonalityMap(form.personalityMap);
 
   // Cast gender to Gender type if valid
@@ -350,7 +500,8 @@ export const CharacterBuilder: React.FC<{
   id?: string | null;
   onSave?: () => void;
   onCancel?: () => void;
-}> = ({ id, onSave: onSaveCallback, onCancel }) => {
+  initialMode?: CharacterBuilderMode;
+}> = ({ id, onSave: onSaveCallback, onCancel, initialMode = 'standard' }) => {
   const {
     form,
     setForm,
@@ -370,12 +521,19 @@ export const CharacterBuilder: React.FC<{
     loadError,
   } = useCharacterBuilderForm(id);
 
+  const [mode, setMode] = useState<CharacterBuilderMode>(initialMode);
   const [saving, setSaving] = useState(false);
   const [generating, setGenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
 
+  const modeConfig = MODE_CONFIGS[mode];
   const isEditing = Boolean(id);
+
+  // Change mode handler - preserves data when switching modes
+  const handleModeChange = useCallback((newMode: CharacterBuilderMode) => {
+    setMode(newMode);
+  }, []);
 
   const handleDelete = async () => {
     if (!id) return;
@@ -467,34 +625,97 @@ export const CharacterBuilder: React.FC<{
 
   return (
     <div className="space-y-4">
-      <h2 className="text-xl font-semibold text-slate-200">Character Builder</h2>
+      {/* Header with Mode Selector */}
+      <div className="flex items-center justify-between">
+        <h2 className="text-xl font-semibold text-slate-200">Character Builder</h2>
+
+        {/* Mode Selector */}
+        <div className="flex items-center gap-1 p-1 bg-slate-800 rounded-lg">
+          {(['quick', 'standard', 'advanced'] as const).map((m) => {
+            const config = MODE_CONFIGS[m];
+            const isActive = mode === m;
+            return (
+              <button
+                key={m}
+                onClick={() => handleModeChange(m)}
+                className={`
+                  px-3 py-1.5 text-sm rounded transition-all
+                  ${
+                    isActive
+                      ? 'bg-violet-600 text-white'
+                      : 'text-slate-400 hover:text-slate-200 hover:bg-slate-700'
+                  }
+                `}
+                title={`${config.label}: ${config.description} (${config.fieldCount})`}
+              >
+                {config.label}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Mode Description */}
+      <p className="text-xs text-slate-500">
+        {modeConfig.label} mode: {modeConfig.description} ({modeConfig.fieldCount})
+      </p>
+
       {loading && <p className="text-sm text-slate-400">Loading character…</p>}
       {loadError && !loading && <p className="text-sm text-amber-300">{loadError}</p>}
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         <div className="lg:col-span-2 space-y-4 overflow-y-auto custom-scrollbar">
-          <BasicsSection form={form} fieldErrors={fieldErrors} updateField={updateField} />
-          <AppearanceSection
-            appearances={form.appearances}
-            gender={form.gender}
-            updateAppearanceEntry={updateAppearanceEntry}
-            addAppearanceEntry={addAppearanceEntry}
-            removeAppearanceEntry={removeAppearanceEntry}
-          />
-          <PersonalitySection form={form} fieldErrors={fieldErrors} updateField={updateField} />
-          <BodySection
-            bodySensory={form.bodySensory}
-            gender={form.gender}
-            updateBodyEntry={updateBodyEntry}
-            addBodyEntry={addBodyEntry}
-            removeBodyEntry={removeBodyEntry}
-          />
-          <DetailsSection
-            details={form.details}
-            updateDetailEntry={updateDetailEntry}
-            addDetailEntry={addDetailEntry}
-            removeDetailEntry={removeDetailEntry}
-          />
+          {/* Basics Section - always visible */}
+          {modeConfig.sections.basics && (
+            <BasicsSection
+              form={form}
+              fieldErrors={fieldErrors}
+              updateField={updateField}
+              visibleFields={modeConfig.basicFields}
+            />
+          )}
+
+          {/* Appearance Section - Standard and Advanced */}
+          {modeConfig.sections.appearance && (
+            <AppearanceSection
+              appearances={form.appearances}
+              gender={form.gender}
+              updateAppearanceEntry={updateAppearanceEntry}
+              addAppearanceEntry={addAppearanceEntry}
+              removeAppearanceEntry={removeAppearanceEntry}
+            />
+          )}
+
+          {/* Personality Section - Standard and Advanced */}
+          {modeConfig.sections.personality && (
+            <PersonalitySection
+              form={form}
+              fieldErrors={fieldErrors}
+              updateField={updateField}
+              isAdvanced={mode === 'advanced'}
+            />
+          )}
+
+          {/* Body Section - Advanced only */}
+          {modeConfig.sections.body && (
+            <BodySection
+              bodySensory={form.bodySensory}
+              gender={form.gender}
+              updateBodyEntry={updateBodyEntry}
+              addBodyEntry={addBodyEntry}
+              removeBodyEntry={removeBodyEntry}
+            />
+          )}
+
+          {/* Details Section - Advanced only */}
+          {modeConfig.sections.details && (
+            <DetailsSection
+              details={form.details}
+              updateDetailEntry={updateDetailEntry}
+              addDetailEntry={addDetailEntry}
+              removeDetailEntry={removeDetailEntry}
+            />
+          )}
         </div>
 
         <PreviewSidebar

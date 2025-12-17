@@ -6,6 +6,8 @@ export type { SessionTagInstance };
 export interface ApiError {
   ok: false;
   error: string | Record<string, unknown>;
+  /** Optional validation details */
+  details?: unknown;
 }
 
 // Runtime config (public subset)
@@ -27,6 +29,7 @@ export interface RuntimeConfig {
   openrouterApiKey: string;
   openrouterModel: string;
   governorDevMode: boolean;
+  debugLlm: boolean;
 }
 
 // LLM chat roles

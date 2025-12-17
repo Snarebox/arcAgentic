@@ -2,6 +2,7 @@ import {
   CHARACTER_DETAIL_AREAS,
   BODY_REGIONS,
   APPEARANCE_REGIONS,
+  APPEARANCE_REGION_ATTRIBUTES,
   PERSONALITY_DIMENSIONS,
   CORE_EMOTIONS,
   EMOTION_INTENSITIES,
@@ -36,6 +37,119 @@ import {
   type FearCategory,
   type CopingMechanism,
 } from '@minimal-rpg/schemas';
+
+// ============================================================================
+// Character Builder Complexity Modes
+// ============================================================================
+
+/**
+ * Complexity mode for the Character Builder.
+ * Controls which sections and fields are visible.
+ */
+export type CharacterBuilderMode = 'quick' | 'standard' | 'advanced';
+
+/**
+ * Configuration for which sections are visible in each mode.
+ */
+export interface ModeConfig {
+  /** Display name for the mode */
+  label: string;
+  /** Description of what fields are shown */
+  description: string;
+  /** Approximate field count for UI display */
+  fieldCount: string;
+  /** Which sections are visible */
+  sections: {
+    basics: boolean;
+    appearance: boolean;
+    personality: boolean;
+    body: boolean;
+    details: boolean;
+  };
+  /** Which fields in basics are visible */
+  basicFields: {
+    name: boolean;
+    age: boolean;
+    gender: boolean;
+    summary: boolean;
+    backstory: boolean;
+    tags: boolean;
+    profilePic: boolean;
+    personality: boolean;
+  };
+}
+
+/**
+ * Mode configurations for each complexity level.
+ */
+export const MODE_CONFIGS: Record<CharacterBuilderMode, ModeConfig> = {
+  quick: {
+    label: 'Quick',
+    description: 'Essential character info',
+    fieldCount: '5 fields',
+    sections: {
+      basics: true,
+      appearance: false,
+      personality: false,
+      body: false,
+      details: false,
+    },
+    basicFields: {
+      name: true,
+      age: true,
+      gender: true,
+      summary: true,
+      backstory: false,
+      tags: false,
+      profilePic: true,
+      personality: false,
+    },
+  },
+  standard: {
+    label: 'Standard',
+    description: 'Common character details',
+    fieldCount: '~20 fields',
+    sections: {
+      basics: true,
+      appearance: true,
+      personality: true,
+      body: false,
+      details: false,
+    },
+    basicFields: {
+      name: true,
+      age: true,
+      gender: true,
+      summary: true,
+      backstory: true,
+      tags: true,
+      profilePic: true,
+      personality: true,
+    },
+  },
+  advanced: {
+    label: 'Advanced',
+    description: 'Full character profile',
+    fieldCount: '~100 fields',
+    sections: {
+      basics: true,
+      appearance: true,
+      personality: true,
+      body: true,
+      details: true,
+    },
+    basicFields: {
+      name: true,
+      age: true,
+      gender: true,
+      summary: true,
+      backstory: true,
+      tags: true,
+      profilePic: true,
+      personality: true,
+    },
+  },
+};
 
 export interface DetailFormEntry {
   label: string;
@@ -312,3 +426,136 @@ export const createInitialState = (): FormState => ({
   bodySensory: [createBodySensoryEntry()],
   details: [createDetailEntry()],
 });
+
+// ============================================================================
+// Smart Entry Helpers
+// ============================================================================
+
+/**
+ * Get all used appearance region+attribute combinations.
+ * Returns a Set of strings in format "region:attribute".
+ */
+export function getUsedAppearanceCombinations(entries: AppearanceEntry[]): Set<string> {
+  const used = new Set<string>();
+  for (const entry of entries) {
+    if (entry.value.trim()) {
+      used.add(`${entry.region}:${entry.attribute}`);
+    }
+  }
+  return used;
+}
+
+/**
+ * Find the next available appearance entry (region + attribute) that hasn't been used.
+ * Iterates through regions in APPEARANCE_REGIONS order, then attributes in their defined order.
+ * Filters regions based on gender.
+ *
+ * @param usedCombinations - Set of used "region:attribute" combinations
+ * @param availableRegions - Regions available based on character gender
+ * @returns The next available entry, or null if all combinations are used
+ */
+export function findNextAvailableAppearanceEntry(
+  usedCombinations: Set<string>,
+  availableRegions: readonly AppearanceRegion[]
+): AppearanceEntry | null {
+  // Iterate through regions in order
+  for (const region of APPEARANCE_REGIONS) {
+    // Skip if region isn't available for this gender
+    if (!availableRegions.includes(region)) continue;
+
+    const regionAttrs = APPEARANCE_REGION_ATTRIBUTES[region];
+    if (!regionAttrs) continue;
+
+    // Iterate through attributes in order
+    for (const attrKey of Object.keys(regionAttrs)) {
+      const combo = `${region}:${attrKey}`;
+      if (!usedCombinations.has(combo)) {
+        return { region, attribute: attrKey, value: '' };
+      }
+    }
+  }
+
+  // All combinations used - return null to indicate no more entries available
+  return null;
+}
+
+/**
+ * Check if an appearance combination is already used.
+ */
+export function isAppearanceCombinationUsed(
+  entries: AppearanceEntry[],
+  region: AppearanceRegion,
+  attribute: string,
+  excludeIndex?: number
+): boolean {
+  return entries.some(
+    (entry, idx) =>
+      idx !== excludeIndex &&
+      entry.region === region &&
+      entry.attribute === attribute &&
+      entry.value.trim() !== ''
+  );
+}
+
+/**
+ * Get all used body sensory region+type combinations.
+ * Returns a Set of strings in format "region:type".
+ */
+export function getUsedSensoryCombinations(entries: BodySensoryEntry[]): Set<string> {
+  const used = new Set<string>();
+  for (const entry of entries) {
+    if (entry.raw.trim()) {
+      used.add(`${entry.region}:${entry.type}`);
+    }
+  }
+  return used;
+}
+
+/**
+ * Find the next available body sensory entry (region + type) that hasn't been used.
+ * Iterates through regions in BODY_REGIONS order, then sensory types in order.
+ * Filters regions based on gender.
+ *
+ * @param usedCombinations - Set of used "region:type" combinations
+ * @param availableRegions - Regions available based on character gender
+ * @returns The next available entry, or null if all combinations are used
+ */
+export function findNextAvailableSensoryEntry(
+  usedCombinations: Set<string>,
+  availableRegions: BodyRegion[]
+): BodySensoryEntry | null {
+  // Iterate through regions in order
+  for (const region of BODY_REGIONS) {
+    // Skip if region isn't available for this gender
+    if (!availableRegions.includes(region)) continue;
+
+    // Iterate through sensory types in order
+    for (const type of SENSORY_TYPES) {
+      const combo = `${region}:${type}`;
+      if (!usedCombinations.has(combo)) {
+        return { region, type, raw: '' };
+      }
+    }
+  }
+
+  // All combinations used - return null to indicate no more entries available
+  return null;
+}
+
+/**
+ * Check if a sensory combination is already used.
+ */
+export function isSensoryCombinationUsed(
+  entries: BodySensoryEntry[],
+  region: BodyRegion,
+  type: SensoryType,
+  excludeIndex?: number
+): boolean {
+  return entries.some(
+    (entry, idx) =>
+      idx !== excludeIndex &&
+      entry.region === region &&
+      entry.type === type &&
+      entry.raw.trim() !== ''
+  );
+}
