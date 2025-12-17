@@ -274,6 +274,26 @@ export async function chatWithOpenRouterTools(
         body['tool_choice'] = tool_choice;
       }
 
+      // Debug: Log request details
+      if (process.env['DEBUG_LLM'] === 'true') {
+        console.log(
+          '[OpenRouter/Tools] Request:',
+          JSON.stringify(
+            {
+              model,
+              messageCount: messages.length,
+              toolCount: tools?.length ?? 0,
+              toolNames: tools?.map((t) => t.function.name),
+              toolChoice: tool_choice,
+              lastMessageRole: messages[messages.length - 1]?.role,
+              lastMessagePreview: messages[messages.length - 1]?.content?.substring(0, 200),
+            },
+            null,
+            2
+          )
+        );
+      }
+
       const res = await fetch(endpoint, {
         method: 'POST',
         headers: {
@@ -302,6 +322,31 @@ export async function chatWithOpenRouterTools(
       }
 
       const payload = (await safeJson<OpenRouterResponse>(res)) ?? {};
+
+      // Debug: Log raw response structure
+      if (process.env['DEBUG_LLM'] === 'true') {
+        console.log(
+          '[OpenRouter/Tools] Raw response:',
+          JSON.stringify(
+            {
+              hasChoices: !!payload.choices,
+              choiceCount: payload.choices?.length,
+              firstChoice: payload.choices?.[0]
+                ? {
+                    finishReason: payload.choices[0].finish_reason,
+                    hasMessage: !!payload.choices[0].message,
+                    hasToolCalls: !!payload.choices[0].message?.tool_calls,
+                    toolCallCount: payload.choices[0].message?.tool_calls?.length,
+                    contentPreview: payload.choices[0].message?.content?.substring(0, 200),
+                  }
+                : null,
+              usage: payload.usage,
+            },
+            null,
+            2
+          )
+        );
+      }
 
       // Check for API error
       if (payload.error) {
