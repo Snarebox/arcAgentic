@@ -7,7 +7,7 @@ services:
       - POSTGRES_PASSWORD=postgres
       - POSTGRES_INITDB_ARGS=--locale=C
     ports:
-      - '5432:5432'
+      - '${PG_PORT:-5432}:5432'
     healthcheck:
       test: ['CMD', 'pg_isready', '-U', 'postgres']
       interval: 5s
@@ -27,8 +27,6 @@ services:
     environment:
       - PORT=3001
       - DATABASE_URL=postgres://postgres:postgres@postgres:5432/minirpg
-      - OPENROUTER_API_KEY=${OPENROUTER_API_KEY}
-      - OPENROUTER_MODEL=${OPENROUTER_MODEL:-deepseek/deepseek-chat}
       - OLLAMA_BASE_URL=http://host.docker.internal:11434
       - OLLAMA_MODEL=mistral:instruct
       - CONTEXT_WINDOW=12
@@ -41,7 +39,7 @@ services:
       - TURN_HANDLER=tool-calling
       - DEBUG_LLM=true
     ports:
-      - '3001:3001'
+      - '${API_PORT:-3001}:3001'
     command: >-
       sh -c "pnpm -F @minimal-rpg/schemas build && pnpm -F @minimal-rpg/db build && node scripts/validate-data.js && pnpm -F @minimal-rpg/db db:migrate && pnpm -F @minimal-rpg/db db:seed && pnpm -F @minimal-rpg/api dev"
     healthcheck:
@@ -67,7 +65,7 @@ services:
       - VITE_USE_TURNS_API=true
       - VITE_GOVERNOR_DEV_MODE=true
     ports:
-      - '5173:5173'
+      - '${WEB_PORT:-5173}:5173'
     command: >-
       sh -c "pnpm -F @minimal-rpg/web dev -- --host 0.0.0.0"
     depends_on:
