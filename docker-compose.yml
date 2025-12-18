@@ -27,13 +27,14 @@ services:
     environment:
       - PORT=3001
       - DATABASE_URL=postgres://postgres:postgres@postgres:5432/minirpg
+      - AUTH_SECRET=dev-secret-change-me-please
+      - LOCAL_ADMIN_PASSWORD=yurikml2
       - OLLAMA_BASE_URL=http://host.docker.internal:11434
       - OLLAMA_MODEL=mistral:instruct
       - CONTEXT_WINDOW=12
       - TEMPERATURE=0.7
       - TOP_P=0.9
       - NODE_ENV=development
-      - ADMIN_DB_TOOLS=true
       - GOVERNOR_DEV_MODE=true
       - INTENT_DEBUG=true
       - TURN_HANDLER=tool-calling
@@ -61,7 +62,6 @@ services:
       - .:/app
     environment:
       - VITE_API_BASE_URL=${VITE_API_BASE_URL:-http://localhost:3001}
-      - VITE_DB_TOOLS=true
       - VITE_USE_TURNS_API=true
       - VITE_GOVERNOR_DEV_MODE=true
     ports:
