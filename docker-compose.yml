@@ -27,7 +27,7 @@ services:
     environment:
       - PORT=3001
       - DATABASE_URL=postgres://postgres:postgres@postgres:5432/minirpg
-      - OPENROUTER_API_KEY=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
+      - OPENROUTER_API_KEY=${OPENROUTER_API_KEY}
       - OPENROUTER_MODEL=${OPENROUTER_MODEL:-deepseek/deepseek-chat}
       - OLLAMA_BASE_URL=http://host.docker.internal:11434
       - OLLAMA_MODEL=mistral:instruct
