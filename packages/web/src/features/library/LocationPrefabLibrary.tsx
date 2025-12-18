@@ -29,9 +29,7 @@ import {
   FileText,
 } from 'lucide-react';
 import type { LocationType, LocationNode, LocationPort } from '@minimal-rpg/schemas';
-
-const API_BASE =
-  (import.meta.env['VITE_API_BASE'] as string | undefined) ?? 'http://localhost:3001';
+import { API_BASE_URL as API_BASE } from '../../config.js';
 
 interface LocationPrefab {
   id: string;

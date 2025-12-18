@@ -2,26 +2,6 @@ name: API - Build & Push Image (staging)
 
 on:
   workflow_dispatch:
-  push:
-    branches:
-      - staging
-    paths:
-      - 'Dockerfile.api'
-      - 'package.json'
-      - 'pnpm-lock.yaml'
-      - 'pnpm-workspace.yaml'
-      - 'turbo.json'
-      - 'tsconfig.base.json'
-      - 'config/**'
-      - 'packages/api/**'
-      - 'packages/agents/**'
-      - 'packages/db/**'
-      - 'packages/governor/**'
-      - 'packages/retrieval/**'
-      - 'packages/schemas/**'
-      - 'packages/state-manager/**'
-      - 'packages/utils/**'
-      - '.github/workflows/api-ghcr-staging.yml'
 
 permissions:
   contents: read

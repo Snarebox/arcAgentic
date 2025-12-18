@@ -2,11 +2,6 @@ name: API - Deploy to Fly.io (staging)
 
 on:
   workflow_dispatch:
-    inputs:
-      image_tag:
-        description: 'GHCR image tag to deploy (default: staging)'
-        required: false
-        default: 'staging'
 
 permissions:
   contents: read
@@ -35,9 +30,7 @@ jobs:
         if: ${{ steps.check.outputs.configured == 'true' }}
         uses: superfly/flyctl-actions/setup-flyctl@master
 
-      - name: Deploy image
+      - name: Deploy (build on Fly from source)
         if: ${{ steps.check.outputs.configured == 'true' }}
-        env:
-          IMAGE_TAG: ${{ inputs.image_tag }}
         run: |
-          flyctl deploy --app "$FLY_APP_NAME" --image "ghcr.io/${{ github.repository }}/api:$IMAGE_TAG"
+          flyctl deploy --app "$FLY_APP_NAME"

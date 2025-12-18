@@ -47,7 +47,7 @@ if (import.meta.url === new URL(process.argv[1] ?? '', 'file:').href) {
   const outArgIndex = process.argv.indexOf('--out');
   const outputPath = outArgIndex >= 0 ? process.argv[outArgIndex + 1] : undefined;
 
-  generateSupabaseBootstrapSql(outputPath ? { outputPath } : undefined)
+  generateSupabaseBootstrapSql(outputPath !== undefined ? { outputPath } : undefined)
     .then(({ outputPath: out, fileCount }) => {
       // eslint-disable-next-line no-console
       console.log(`[db] Wrote ${fileCount} migrations to ${out}`);

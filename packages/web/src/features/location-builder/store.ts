@@ -18,8 +18,7 @@ import type {
   LocationPrefabListResponse,
   LocationPrefabResponse,
 } from './types.js';
-
-const API_BASE = (import.meta.env['VITE_API_URL'] as string | undefined) ?? 'http://localhost:3001';
+import { API_BASE_URL as API_BASE } from '../../config.js';
 
 interface FetchResult<T> {
   ok: boolean;

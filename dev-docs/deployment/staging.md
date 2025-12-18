@@ -30,44 +30,66 @@ Notes:
 
 - The workflow sets `BASE_PATH=/<repo>/` so Vite assets work on Pages.
 
-## 3. API image (GHCR)
+It also sets `VITE_API_BASE_URL` so the web app points at the staging API.
 
-Workflow: [.github/workflows/api-ghcr-staging.yml](../../.github/workflows/api-ghcr-staging.yml)
+## 3. API (Fly.io)
 
-- On push to `staging`, CI builds and pushes:
-  - `ghcr.io/<owner>/<repo>/api:staging`
-  - `ghcr.io/<owner>/<repo>/api:<sha>`
+This repo deploys the API to Fly by building from source using:
 
-This does not deploy anywhere by itself.
+- Fly config: [fly.toml](../../fly.toml)
+- Dockerfile: [Dockerfile.api](../../Dockerfile.api)
 
-## 4. API deploy (Fly.io)
+There is no GHCR dependency for staging deploys.
 
-Workflow: [.github/workflows/api-fly-deploy-staging.yml](../../.github/workflows/api-fly-deploy-staging.yml)
+### One-time setup
 
-This workflow is manual and is skipped until you add these GitHub repo secrets:
-
-- `FLY_API_TOKEN`
-- `FLY_APP_NAME`
-
-Once Fly is set up:
-
-1. Create the Fly app (one-time):
+1. Create the Fly app (pick a name and a region):
 
 ```bash
 flyctl apps create <your-app-name>
 ```
 
-2. Set any required secrets (examples):
+2. Update `fly.toml` to use your app name:
+
+```toml
+app = "<your-app-name>"
+```
+
+3. Set required secrets (examples):
 
 ```bash
 flyctl secrets set \
+  -a <your-app-name> \
   DATABASE_URL="..." \
   AUTH_SECRET="..." \
   OPENROUTER_API_KEY="..." \
   OPENROUTER_MODEL="deepseek/deepseek-chat"
 ```
 
-3. Run the workflow "API - Deploy to Fly.io (staging)" and keep the default image tag `staging`.
+### Deploy
+
+Option A (recommended): deploy from your machine:
+
+```bash
+flyctl deploy -a <your-app-name>
+```
+
+Option B: deploy from GitHub Actions:
+
+Workflow: [.github/workflows/api-fly-deploy-staging.yml](../../.github/workflows/api-fly-deploy-staging.yml)
+
+Add these GitHub repo secrets:
+
+- `FLY_API_TOKEN`
+- `FLY_APP_NAME`
+
+Then run the workflow "API - Deploy to Fly.io (staging)".
+
+### Verify
+
+```bash
+curl -fsS "https://<your-app-name>.fly.dev/health"
+```
 
 ## 5. Promotion flow
 
