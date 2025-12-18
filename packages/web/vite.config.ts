@@ -78,16 +78,11 @@ export default defineConfig(() => ({
         manualChunks(id) {
           if (!id.includes('node_modules')) return;
 
-          // NOTE: be very specific here.
-          // A naive `id.includes('/react/')` matches packages like `@xyflow/react` and can
-          // create circular chunk dependencies (which can yield undefined React exports).
-          const isReactRuntime =
-            id.includes('/node_modules/react/') ||
-            id.includes('/node_modules/react-dom/') ||
-            id.includes('/node_modules/scheduler/') ||
-            id.includes('/node_modules/use-sync-external-store/');
-
-          if (isReactRuntime) return 'vendor-react';
+          // Intentionally do NOT split React into its own chunk.
+          // We previously observed a circular chunk dependency between a React-only vendor chunk
+          // and the general vendor chunk, which can result in `React` being `undefined` at runtime
+          // (e.g. `Cannot read properties of undefined (reading 'forwardRef')`).
+          // Keeping React in the general vendor chunk avoids that cycle.
           if (id.includes('/@xyflow/')) return 'vendor-xyflow';
           if (id.includes('/@tanstack/')) return 'vendor-tanstack';
           if (id.includes('/zustand/')) return 'vendor-zustand';
