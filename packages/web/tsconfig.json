@@ -1,6 +1,17 @@
 {
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {
+    "baseUrl": ".",
+    "paths": {
+      "@minimal-rpg/ui": ["../ui/src/index.ts"],
+      "@minimal-rpg/ui/*": ["../ui/src/*"],
+      "@minimal-rpg/generator": ["../generator/src/index.ts"],
+      "@minimal-rpg/generator/*": ["../generator/src/*"],
+      "@minimal-rpg/schemas": ["../schemas/src/index.ts"],
+      "@minimal-rpg/schemas/*": ["../schemas/src/*"],
+      "@minimal-rpg/utils": ["../utils/src/index.ts"],
+      "@minimal-rpg/utils/*": ["../utils/src/*"]
+    },
     "lib": ["dom", "dom.iterable", "es2023"],
     "jsx": "react-jsx",
     "types": ["vite/client"]
