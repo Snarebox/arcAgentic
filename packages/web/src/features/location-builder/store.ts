@@ -19,7 +19,6 @@ import type {
   LocationPrefabResponse,
 } from './types.js';
 import { API_BASE_URL as API_BASE } from '../../config.js';
-
 interface FetchResult<T> {
   ok: boolean;
   data?: T;

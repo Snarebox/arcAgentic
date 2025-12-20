@@ -22,7 +22,6 @@ import {
 import type { LocationType, LocationNode } from '@minimal-rpg/schemas';
 import { PrefabBuilder } from '../prefab-builder/index.js';
 import { API_BASE_URL as API_BASE } from '../../config.js';
-
 interface LocationPrefab {
   id: string;
   name: string;

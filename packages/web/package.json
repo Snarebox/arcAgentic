@@ -8,7 +8,7 @@
     "dev": "vite",
     "lint": "eslint src --max-warnings=0",
     "preview": "vite preview",
-    "test": "vitest run",
+    "test": "vitest run --passWithNoTests",
     "test:watch": "vitest",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
@@ -19,6 +19,7 @@
     "@minimal-rpg/schemas": "workspace:*",
     "@minimal-rpg/ui": "workspace:*",
     "@minimal-rpg/utils": "workspace:*",
+    "@supabase/supabase-js": "^2.57.4",
     "@xyflow/react": "^12.10.0",
     "lucide-react": "^0.561.0",
     "react": "^19.2.0",

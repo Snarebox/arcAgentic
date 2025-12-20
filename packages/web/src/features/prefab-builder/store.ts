@@ -15,7 +15,6 @@ import type { XYPosition } from '@xyflow/react';
 import type { PrefabBuilderStore } from './types.js';
 import { calculateDirection, toExitDirection, getOppositeExitDirection } from './types.js';
 import { API_BASE_URL as API_BASE } from '../../config.js';
-
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null;
 }

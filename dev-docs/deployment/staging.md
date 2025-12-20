@@ -30,7 +30,13 @@ Notes:
 
 - The workflow sets `BASE_PATH=/<repo>/` so Vite assets work on Pages.
 
-It also sets `VITE_API_BASE_URL` so the web app points at the staging API.
+It also sets the Vite env vars so the web app points at the staging API and uses Supabase Auth.
+
+Add these GitHub repo secrets:
+
+- `VITE_API_BASE_URL`
+- `VITE_SUPABASE_URL`
+- `VITE_SUPABASE_ANON_KEY`
 
 ## 3. API (Fly.io)
 

@@ -8,7 +8,6 @@ import { LocationBuilder } from '../../location-builder/index.js';
 import type { LocationMapListResponse } from '../../location-builder/types.js';
 import { MapPin, Plus, Check, Loader2, AlertCircle, X, ExternalLink } from 'lucide-react';
 import { API_BASE_URL as API_BASE } from '../../../config.js';
-
 interface MapSummary {
   id: string;
   name: string;

@@ -8,7 +8,6 @@ import { useState, useEffect, useCallback } from 'react';
 import type { LocationMapListResponse } from '../location-builder/types.js';
 import { Plus, RefreshCw, MapPin, Trash2, Edit, Globe } from 'lucide-react';
 import { API_BASE_URL as API_BASE } from '../../config.js';
-
 interface LocationMapSummary {
   id: string;
   name: string;

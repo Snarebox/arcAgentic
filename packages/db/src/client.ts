@@ -1,8 +1,8 @@
 import { Pool } from 'pg';
 import { registerType } from './pgvector.js';
+import { resolveDatabaseUrl } from './connection/resolveDatabaseUrl.js';
 import type {
   CharacterInstanceRow,
-  CharacterTemplateRow,
   CharacterProfileRow,
   SettingProfileRow,
   PersonaProfileRow,
@@ -20,7 +20,6 @@ import type {
   ScheduleTemplateRow,
   SessionPersonaRow,
   SettingInstanceRow,
-  SettingTemplateRow,
   SqlParams,
   UserSessionRow,
 } from './types.js';
@@ -29,13 +28,24 @@ const env: Record<string, string | undefined> =
   (globalThis as unknown as { process?: { env?: Record<string, string | undefined> } }).process
     ?.env ?? {};
 
-export const resolvedDbUrl =
-  env['DATABASE_URL'] ?? 'postgres://postgres:postgres@localhost:5432/minirpg';
+export const resolvedDbUrl = resolveDatabaseUrl(env).url;
 export const resolvedDbPath = resolvedDbUrl;
 
 function createPool(url: string): unknown {
-  const Ctor = Pool as unknown as new (config: { connectionString: string }) => unknown;
-  return new Ctor({ connectionString: url });
+  const Ctor = Pool as unknown as new (config: {
+    connectionString: string;
+    ssl?: { rejectUnauthorized: boolean };
+  }) => unknown;
+
+  const isSupabase =
+    url.includes('supabase.co') ||
+    url.includes('supabase.com') ||
+    url.includes('pooler.supabase.com');
+
+  return new Ctor({
+    connectionString: url,
+    ...(isSupabase ? { ssl: { rejectUnauthorized: false } } : {}),
+  });
 }
 
 // Create the pool and treat it as a strict Pg pool

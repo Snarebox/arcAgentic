@@ -30,7 +30,6 @@ import {
 } from 'lucide-react';
 import type { LocationType, LocationNode, LocationPort } from '@minimal-rpg/schemas';
 import { API_BASE_URL as API_BASE } from '../../config.js';
-
 interface LocationPrefab {
   id: string;
   name: string;

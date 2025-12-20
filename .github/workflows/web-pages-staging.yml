@@ -57,7 +57,9 @@ jobs:
         env:
           # GitHub Pages project site path is /<repo>/
           BASE_PATH: /${{ github.event.repository.name }}/
-          VITE_API_BASE_URL: https://arcagentic.fly.dev
+          VITE_API_BASE_URL: ${{ secrets.VITE_API_BASE_URL }}
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
         run: pnpm turbo run build --filter=@minimal-rpg/web
 
       - name: Upload Pages artifact

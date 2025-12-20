@@ -8,7 +8,6 @@ import type { TagSelection, NpcSessionConfig } from '../store.js';
 import type { TagSummary, CharacterSummary } from '../../../types.js';
 import { AlertCircle } from 'lucide-react';
 import { API_BASE_URL as API_BASE } from '../../../config.js';
-
 interface LocationOption {
   id: string;
   name: string;
