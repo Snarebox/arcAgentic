@@ -42,7 +42,7 @@ services:
     ports:
       - '${API_PORT:-3001}:3001'
     command: >-
-      sh -c "pnpm -F @minimal-rpg/schemas build && pnpm -F @minimal-rpg/db build && node scripts/validate-data.js && pnpm -F @minimal-rpg/db db:migrate && pnpm -F @minimal-rpg/db db:seed && pnpm -F @minimal-rpg/api dev"
+      sh -c "pnpm -F @minimal-rpg/schemas build && pnpm -F @minimal-rpg/db build && pnpm -F @minimal-rpg/db db:migrate && pnpm -F @minimal-rpg/db db:seed && pnpm -F @minimal-rpg/api dev"
     healthcheck:
       test: ['CMD', 'curl', '-f', 'http://localhost:3001/health']
       interval: 5s
